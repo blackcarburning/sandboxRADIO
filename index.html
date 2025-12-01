@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>sandboxRADIO Player V101 - Rebrand</title>
+    <style>
+        :root {
+            --chassis-bg: #2b2b2b;
+            --panel-bg: #1a1a1a;
+            --text-main: #d1d1d1;
+            --display-bg: #0f172a;
+            --display-text: #38bdf8;
+            --accent-color: #ea580c;
+            --mode-active: #10b981;
+            --mode-danger: #ef4444;
+            --btn-gradient-top: #404040;
+            --btn-gradient-bottom: #262626;
+            --border-light: #525252;
+            --border-dark: #000000;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .radio-chassis {
+            width: 98%; max-width: 1400px; height: 96vh;
+            background: var(--chassis-bg); border-radius: 12px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 10px 30px rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; padding: 10px;
+            position: relative; border: 4px solid #000;
+        }
+
+        .screw { position: absolute; width: 10px; height: 10px; background: #111; border-radius: 50%; box-shadow: inset 0 1px 2px rgba(255,255,255,0.2); z-index: 5; }
+        .tl { top: 5px; left: 5px; } .tr { top: 5px; right: 5px; } .bl { bottom: 5px; left: 5px; } .br { bottom: 5px; right: 5px; }
+
+        .top-deck {
+            display: flex; gap: 8px; padding: 8px; border-bottom: 2px solid #000; margin-bottom: 8px;
+            align-items: center; background: #222; border-radius: 6px; box-shadow: inset 0 0 10px #000; flex-wrap: wrap;
+        }
+        .logo { font-weight: 900; font-size: 1.2rem; color: var(--text-main); letter-spacing: 1px; margin-right: auto; text-shadow: 0 2px 0 #000; font-style: italic; }
+        .logo span { color: var(--accent-color); }
+
+        .btn {
+            background: linear-gradient(to bottom, var(--btn-gradient-top), var(--btn-gradient-bottom));
+            color: #e5e5e5; border: 1px solid #000; border-top: 1px solid var(--border-light);
+            padding: 6px 12px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase;
+            border-radius: 4px; cursor: pointer; box-shadow: 0 3px 0 #000; transition: transform 0.1s;
+            white-space: nowrap; text-align: center; display: inline-block;
+        }
+        .btn:active { transform: translateY(3px); box-shadow: 0 0 0 #000; }
+        .btn-help { color: var(--accent-color); border-color: #664400; }
+
+        input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+        .player-deck {
+            height: auto; background: #222; margin-bottom: 10px; border-radius: 8px;
+            border: 2px solid #000; box-shadow: inset 0 0 20px #000; display: flex;
+            align-items: center; padding: 10px; gap: 10px; flex-shrink: 0;
+            position: relative; z-index: 20;
+        }
+        .speaker-grill {
+            width: 30px; height: 80px; flex-shrink: 0;
+            background-image: radial-gradient(#000 20%, transparent 20%);
+            background-size: 3px 3px; border-radius: 4px; box-shadow: inset 0 0 10px #000;
+        }
+        .player-controls-wrapper { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+        /* LCD DISPLAY */
+        .lcd-display {
+            background: var(--display-bg); border: 2px solid #444; border-radius: 4px;
+            padding: 6px 10px; 
+            display: flex; flex-direction: column; gap: 2px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8); position: relative;
+            overflow: hidden;
+        }
+        .lcd-row { display: flex; align-items: center; width: 100%; position: relative; }
+        .lcd-glass { position: absolute; top:0; left:0; right:0; bottom:0; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%); z-index: 20; }
+        .time-readout { font-family: 'Courier New', monospace; color: var(--display-text); font-weight: bold; min-width: 110px; font-size: 0.8rem; margin-right: 10px; }
+        .marquee-container { width: 100%; overflow: hidden; white-space: nowrap; position: relative; }
+        .marquee-inner { display: inline-block; font-family: 'Courier New', monospace; color: #2a7a9e; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; animation: marquee 15s linear infinite; padding-left: 100%; }
+        @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #334155; border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--display-text); cursor: pointer; -webkit-appearance: none; margin-top: -6px; box-shadow: 0 0 5px var(--display-text); position: relative; z-index: 5; }
+        #scrubber { width: 100%; flex: 1; }
+
+        .transport-row { display: flex; justify-content: center; gap: 6px; align-items: center; flex-wrap: wrap;}
+        .transport-btn {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #444, #111);
+            border: 2px solid #000; box-shadow: 0 3px 3px rgba(0,0,0,0.5);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.85rem; transition: all 0.1s;
+        }
+        .transport-btn:active { transform: scale(0.95); background: #222; }
+        .transport-btn.play-large { width: 48px; height: 48px; font-size: 1.2rem; color: var(--accent-color); border-color: #333; }
+        .btn-top { font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; color: var(--accent-color); border-color: #555; }
+
+        .test-end-group { display: flex; align-items: center; background: #333; border: 1px solid #000; border-radius: 4px; padding: 2px; height: 28px; margin-left: 5px; }
+        .util-btn { background: transparent; color: #aaa; border: none; font-size: 0.65rem; padding: 0 8px; cursor: pointer; text-transform: uppercase; height: 100%; }
+        .util-btn:hover { color: #fff; }
+        .test-input { width: 45px; background: #222; color: #38bdf8; border: none; text-align: center; font-family: monospace; font-size: 0.8rem; height: 100%; border-left: 1px solid #444; }
+        .test-input:focus { outline: none; background: #000; }
+
+        /* VOLUME GROUP */
+        .volume-group {
+            display: flex; align-items: center; background: #222; border: 1px solid #444;
+            border-radius: 4px; padding: 0 8px; height: 28px; margin-left: 10px;
+        }
+        .vol-label { font-size: 0.6rem; font-weight: bold; color: #888; margin-right: 6px; }
+        #volumeSlider { width: 80px; }
+        #volumeSlider::-webkit-slider-thumb { background: #10b981; box-shadow: 0 0 5px #10b981; }
+        
+        /* METER BRIDGE */
+        .meter-bridge {
+            display: flex; gap: 2px; align-items: center; margin-left: 5px;
+            background: #0a0a0a; padding: 2px; border-radius: 4px;
+            border: 1px solid #333; flex-shrink: 0;
+        }
+        .lufs-box {
+            background: #0f172a; border: 1px solid #444; border-radius: 2px;
+            height: 24px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 5px; font-family: 'Courier New', monospace;
+            color: #555; font-weight: bold; font-size: 0.7rem;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.8); width: 60px;
+        }
+        .lufs-box.wide { width: 76px; }
+        .lufs-box.active { color: var(--mode-active); text-shadow: 0 0 5px rgba(16,185,129,0.5); }
+        .lufs-box.phase-alert { color: var(--mode-danger); text-shadow: 0 0 5px rgba(239,68,68,0.5); border-color: var(--mode-danger); }
+        .lufs-label { font-size: 0.6rem; opacity: 0.7; color: #aaa; margin-right: 2px; }
+        .val-readout { text-align: right; flex: 1; }
+
+        /* VERTICAL STACK FOR VU + MAX */
+        .vu-stack {
+            display: flex; flex-direction: column; height: 30px;
+            margin-left: 4px; min-width: 90px;
+        }
+
+        /* VU METER (Top Part) */
+        .vu-group {
+            display: flex; flex-direction: column; gap: 1px; 
+            height: 12px; width: 100%;
+            background: #050505; padding: 1px; border: 1px solid #333; border-bottom: none;
+            border-radius: 2px 2px 0 0; position: relative;
+        }
+        .vu-ch { flex: 1; background: #1a1a1a; position: relative; border-radius: 1px; overflow: hidden; display:flex; }
+        
+        .vu-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981 60%, #f59e0b 85%, #ef4444 100%);
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+            -webkit-mask-image: repeating-linear-gradient(90deg, #000, #000 3px, transparent 3px, transparent 4px);
+            mask-image: repeating-linear-gradient(90deg, #000, #000 3px, transparent 3px, transparent 4px);
+            transition: width 0.05s linear;
+        }
+        
+        .peak-hold { position: absolute; top: 0; height: 100%; width: 2px; background: #fff; opacity: 0.8; z-index: 5; display: none; }
+        .clip-led { width: 8px; height: 100%; background: #330000; border-left: 1px solid #000; flex-shrink: 0; }
+        .clip-led.latched { background: #ff0000; box-shadow: 0 0 8px #ff0000; }
+
+        /* MAX CONTROLS (Bottom Part) */
+        .max-row {
+            display: flex; align-items: center; 
+            height: 18px; width: 100%;
+            background: #0f172a; border: 1px solid #333; border-radius: 0 0 2px 2px;
+            padding: 0 4px;
+        }
+        
+        .max-col-left {
+            display: flex; flex-direction: column; justify-content: center;
+            margin-right: 6px; width: 22px; border-right: 1px solid #333;
+            height: 100%;
+        }
+        
+        .max-label { font-size: 0.45rem; color: #888; font-weight:bold; font-family: sans-serif; line-height: 1; margin-bottom: 1px; text-transform: uppercase;}
+        
+        .reset-btn {
+            background: transparent; border: none; color: #ef4444;
+            font-size: 0.5rem; padding: 0; text-align: left;
+            cursor: pointer; font-weight: bold; font-family: sans-serif;
+            line-height: 1;
+        }
+        .reset-btn:hover { color: #fff; text-decoration: underline; }
+
+        .max-val { font-family: 'Courier New', monospace; font-size: 0.7rem; color: #38bdf8; font-weight: bold; flex: 1; text-align: right; }
+
+        .mode-btn { 
+            font-size: 0.65rem; padding: 0 8px; height: 28px; margin-left: 5px;
+            border: 1px solid #444; background: #222; color: #666; border-radius: 4px; 
+            cursor: pointer; font-weight: bold; text-transform: uppercase;
+        }
+        .mode-btn.active { 
+            background: #064e3b; color: var(--mode-active); border-color: var(--mode-active);
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+        }
+        .mode-btn.disabled { opacity: 0.4; cursor: not-allowed; border-color: #222; color: #444; box-shadow: none; }
+
+        /* ANALYSIS LAB */
+        #analysisLab {
+            background: #000; border: 2px solid #333; border-top: none;
+            margin: -12px 0 10px 0; border-radius: 0 0 8px 8px;
+            height: 0; overflow: hidden; transition: height 0.3s ease;
+            position: relative; z-index: 10; display: flex; flex-direction: column;
+        }
+        #analysisLab.open { height: 200px; border-color: #000; box-shadow: inset 0 0 20px rgba(0,0,0,0.9); }
+        
+        .lab-tabs { display: flex; background: #111; border-bottom: 1px solid #333; }
+        .lab-tab { 
+            flex: 1; padding: 4px; font-size: 0.65rem; text-align: center; color: #666; 
+            cursor: pointer; border-right: 1px solid #222; text-transform: uppercase; font-weight: bold;
+        }
+        .lab-tab.active { color: var(--accent-color); background: #000; box-shadow: inset 0 -2px 0 var(--accent-color); }
+        
+        .lab-viewport { flex: 1; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .scope-controls {
+            position: absolute; top: 5px; right: 5px; z-index: 60;
+            background: rgba(0,0,0,0.7); padding: 4px; border-radius: 4px;
+            display: none; align-items: center; border: 1px solid #333;
+        }
+        .scope-controls span { font-size: 0.6rem; color: #fff; margin-right: 5px; font-weight: bold; }
+        #scopeZoom { width: 80px; height: 4px; }
+        
+        .util-toggle {
+            background: #222; border: 1px solid #555; color: #fff; font-size: 0.6rem;
+            padding: 2px 6px; cursor: pointer; margin-left: 10px; border-radius: 2px;
+        }
+        .util-toggle:hover { border-color: var(--accent-color); }
+
+        .spectrum-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #666; font-family: monospace; font-weight: bold; pointer-events: none; z-index: 50;
+        }
+
+        .dashboard { 
+            display: grid; grid-template-columns: 260px 1fr 260px; gap: 10px; 
+            flex: 1; overflow: hidden; min-height: 0;
+            transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dashboard.minimized { grid-template-columns: 50px 1fr 260px; }
+        .dashboard.minimized #libraryPanel .hide-when-minimized { display: none; }
+        
+        .panel-frame {
+            background: var(--panel-bg); border: 2px solid #000; border-radius: 6px;
+            display: flex; flex-direction: column; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); 
+            height: 100%; overflow: hidden; transition: height 0.3s ease;
+        }
+        .panel-frame.collapsed #library-list { display: none; }
+        .panel-header {
+            background: #111; color: #888; padding: 8px; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333;
+            display: flex; align-items: center; min-height: 32px; flex-shrink: 0;
+            white-space: nowrap; overflow: hidden;
+        }
+        .panel-footer {
+            background: #000; color: var(--display-text); padding: 6px 10px; font-size: 0.8rem;
+            border-top: 1px solid #333; text-align: right; font-family: 'Courier New', monospace;
+            font-weight: bold; min-height: 30px; display: flex; align-items: center; justify-content: flex-end;
+        }
+        .action-txt { color: var(--accent-color); cursor: pointer; font-weight: bold; font-size: 0.7rem; margin-left: 10px;}
+        .action-txt.danger { color: #ef4444; }
+        .toggle-text { color: #fff; cursor: pointer; font-family: monospace; font-weight: bold; margin-right: 10px; font-size: 1rem; }
+        .toggle-text:hover { color: var(--accent-color); }
+        .scroll-area { flex: 1; overflow-y: auto; padding: 5px; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+        .scroll-area::-webkit-scrollbar { width: 6px; background: #111; }
+        .scroll-area::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+        .track-item, .preset-item {
+            background: #2a2a2a; margin-bottom: 3px; padding: 8px; border-radius: 4px;
+            font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; border-left: 3px solid transparent; color: #aaa;
+            user-select: none; min-height: 40px; touch-action: pan-y; 
+        }
+        .track-item:hover, .preset-item:hover { background: #333; color: white; }
+        .track-item.active { background: #2d3035; border-left: 3px solid var(--accent-color); color: var(--accent-color); }
+        .track-item.dragging { opacity: 0.5; background: #444; }
+        .track-item.drag-target { border-top: 2px solid var(--accent-color); }
+        .preset-item { font-size: 0.8rem; min-height: 35px; border-left: 3px solid #444; color: #999; }
+        .preset-item:hover { border-left-color: #fff; }
+        
+        .icon-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+        .icon-btn { font-weight: bold; width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; opacity: 0.6; cursor: pointer; font-size: 1.2rem; }
+        .icon-btn:hover { opacity: 1; color: white; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        .move-btn { font-size: 0.8rem; color: #888; } .move-btn:hover { color: #fff; }
+        .remove-btn { color: #ef4444; } .add-btn { color: #10b981; }
+        .trunc-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; margin-right: 5px; }
+        
+        #resetDBBtn { position: absolute; bottom: 5px; right: 5px; opacity: 0.2; font-size: 0.6rem; color: red; cursor: pointer; z-index: 10; }
+        #resetDBBtn:hover { opacity: 1; }
+        
+        #exportOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .export-box {
+            background: #222; border: 2px solid var(--accent-color); border-radius: 8px; padding: 20px;
+            width: 90%; max-width: 320px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 0 30px rgba(0,0,0,1);
+        }
+        .export-title { color: #fff; font-weight: bold; font-size: 1.1rem; text-align: center; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .export-label { color: #aaa; font-size: 0.8rem; }
+        .export-input { 
+            background: #111; border: 1px solid #555; color: #fff; padding: 10px; 
+            font-size: 1rem; border-radius: 4px; width: 100%; font-family: monospace;
+        }
+        .export-input:focus { outline: none; border-color: var(--accent-color); }
+        .export-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .action-btn {
+            padding: 12px; border: none; border-radius: 4px; font-weight: bold; 
+            text-transform: uppercase; cursor: pointer; color: white; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-confirm { background: var(--accent-color); box-shadow: 0 4px 0 #a33d05; color: black; }
+        .btn-confirm:active { transform: translateY(2px); box-shadow: 0 2px 0 #a33d05; }
+        .btn-copy { background: #3b82f6; color: white; box-shadow: 0 4px 0 #1d4ed8; }
+        .btn-copy:active { transform: translateY(2px); box-shadow: 0 2px 0 #1d4ed8; }
+        .btn-cancel { background: #444; color: #aaa; margin-top: 5px; }
+
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #333; color: #fff;
+            text-align: center; border-radius: 4px; padding: 12px; position: fixed;
+            z-index: 2000; bottom: 30px; left: 50%; transform: translateX(-50%);
+            border: 1px solid var(--accent-color); box-shadow: 0 0 20px rgba(0,0,0,1);
+            font-weight: bold; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            font-family: 'Courier New', monospace; letter-spacing: 1px;
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 60px; }
+
+        @media (max-width: 1000px) {
+            .radio-chassis { height: 100vh; border-radius: 0; border: none; padding: 5px; width: 100%; }
+            .dashboard, .dashboard.minimized { display: flex; flex-direction: column; overflow-y: auto; flex: 1; grid-template-columns: none; }
+            .dashboard.minimized #libraryPanel .hide-when-minimized { display: inline; }
+            .panel-frame { flex: none; height: 220px; margin-bottom: 5px; min-height: 40px; }
+            .panel-frame:nth-child(2) { flex: 1; min-height: 250px; }
+            .panel-frame.collapsed { height: auto !important; min-height: 40px; flex: none; }
+            .panel-frame.collapsed .panel-header { border-bottom: none; }
+            .player-deck { padding: 5px; gap: 5px; }
+            .speaker-grill { display: none; }
+            .logo { font-size: 1rem; }
+            .btn { padding: 6px 8px; font-size: 0.7rem; }
+            .track-item, .preset-item { padding: 6px 4px; }
+            .icon-group { gap: 5px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="radio-chassis">
+    <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+    <div id="resetDBBtn">FACTORY RESET</div>
+
+    <div id="exportOverlay">
+        <div class="export-box">
+            <div class="export-title">Backup System</div>
+            <div>
+                <div class="export-label">Filename</div>
+                <input type="text" id="exportFilename" class="export-input" value="sandboxRADIO_Backup">
+            </div>
+            <div class="export-actions">
+                <button class="action-btn btn-confirm" id="btnActionSave"><span>💾 Save to File</span></button>
+                <button class="action-btn btn-copy" id="btnActionCopy"><span>📋 Copy to Clipboard</span></button>
+                <button class="action-btn btn-cancel" id="btnActionCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:50;display:none;align-items:center;justify-content:center;color:white;font-weight:bold;">Processing...</div>
+
+    <div class="top-deck">
+        <div class="logo">sandbox<span>RADIO</span></div>
+        <button class="btn" id="btnLoadFolder">Load Folder</button>
+        <input type="file" id="folderInput" webkitdirectory directory multiple>
+        <button class="btn" id="btnLoadFiles">Load Files</button>
+        <input type="file" id="fileInput" multiple accept=".wav">
+        <div style="flex:1"></div>
+        <button class="btn" id="exportBtn">Backup System</button>
+        <button class="btn" id="btnImport">Restore Backup</button>
+        <input type="file" id="importInput" accept="*">
+        <button class="btn btn-help" id="btnHelp" onclick="window.open('http://92.236.31.65/sandboxradio_help.html', '_blank')">Help</button>
+    </div>
+
+    <div class="player-deck">
+        <div class="speaker-grill speaker-left"></div>
+        <div class="player-controls-wrapper">
+            <div class="lcd-display">
+                <div class="lcd-glass"></div>
+                <div class="lcd-row">
+                    <span class="time-readout" id="time-display">0:00 / 0:00</span>
+                    <input type="range" id="scrubber" value="0" min="0" step="0.1">
+                </div>
+                <div class="lcd-row">
+                    <div class="marquee-container">
+                        <span id="track-title-display" class="marquee-inner">---</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="transport-row">
+                <button class="transport-btn btn-top" id="playAllBtn" title="Play from Start">TOP</button>
+                <button class="transport-btn" id="prevTrackBtn">|&lt;</button>
+                <button class="transport-btn" id="rewindBtn">&laquo;</button>
+                <button class="transport-btn" id="stopBtn">■</button>
+                <button class="transport-btn play-large" id="playBtn">▶</button>
+                <button class="transport-btn" id="forwardBtn">&raquo;</button>
+                <button class="transport-btn" id="nextTrackBtn">&gt;|</button>
+                <div class="test-end-group">
+                    <button class="util-btn" id="testEndBtn" title="Play last X seconds">Test End</button>
+                    <input type="number" id="testEndInput" class="test-input" value="10" title="Seconds from end" autocomplete="off">
+                </div>
+                <button id="toggleLabBtn" class="mode-btn disabled" title="Toggle Analysis Lab">LAB</button>
+                <button id="monoBtn" class="mode-btn">MONO</button>
+                <button id="toggleAnalysisBtn" class="mode-btn">Analysis: OFF</button>
+                
+                <div class="meter-bridge">
+                    <div class="lufs-box" id="lufsDisplay" title="Momentary LUFS"><span class="lufs-label">M</span><span id="lufsValue" class="val-readout">---</span></div>
+                    <div class="lufs-box" id="lufsIntegratedDisplay" title="Integrated LUFS"><span class="lufs-label">I</span><span id="lufsIntegratedValue" class="val-readout">---</span></div>
+                    <div class="lufs-box" id="plrDisplay" title="Peak-to-Loudness Ratio"><span class="lufs-label">PLR</span><span id="plrValue" class="val-readout">---</span></div>
+                    <div class="lufs-box wide" id="phaseDisplay" title="Correlation / Phase (-1.0 to +1.0)"><span class="lufs-label">CORR</span><span id="phaseValue" class="val-readout">---</span></div>
+                    
+                    <div class="vu-stack" id="vuStack">
+                        <div class="vu-group" title="Click meter to Reset">
+                            <div class="vu-ch"><div class="vu-bar" id="vuL"></div><div class="peak-hold" id="phL"></div><div class="clip-led" id="clipL"></div></div>
+                            <div class="vu-ch"><div class="vu-bar" id="vuR"></div><div class="peak-hold" id="phR"></div><div class="clip-led" id="clipR"></div></div>
+                        </div>
+                        <div class="max-row">
+                            <div class="max-col-left">
+                                <span class="max-label">MAX</span>
+                                <button id="btnResetPeak" class="reset-btn" title="Reset Peak">RST</button>
+                            </div>
+                            <span id="maxPeakValue" class="max-val">---</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="volume-group" id="vol-control-container">
+                    <span class="vol-label">VOL</span>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" autocomplete="off">
+                </div>
+            </div>
+        </div>
+        <div class="speaker-grill speaker-right"></div>
+    </div>
+
+    <!-- ANALYSIS LAB -->
+    <div id="analysisLab">
+        <div class="lab-tabs">
+            <div class="lab-tab active" data-tab="spectrum">Spectrum</div>
+            <div class="lab-tab" data-tab="scope">Scope</div>
+            <div class="lab-tab" data-tab="vector">Vector</div>
+            <div class="lab-tab" data-tab="waterfall">Waterfall</div>
+        </div>
+        <div class="lab-viewport">
+            <div class="scope-controls" id="scopeControls">
+                <span class="scope-ui-only">Timebase (10ms - 5s)</span>
+                <input type="range" id="scopeZoom" class="scope-ui-only" min="10" max="5000" step="10" value="10">
+                <button id="spectrumModeBtn" class="util-toggle spectrum-ui-only">VIEW: L/R</button>
+            </div>
+            <canvas id="mainCanvas"></canvas>
+            <canvas id="waterfallCanvas" style="display:none;"></canvas>
+            <div class="spectrum-overlay" id="spectrumOverlay">ANALYSIS MODE REQUIRED</div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="mainDashboard">
+        <div class="panel-frame" id="libraryPanel">
+            <div class="panel-header">
+                <span class="toggle-text" id="toggleLibBtn" title="Minimize">[-]</span>
+                <span class="hide-when-minimized" style="flex:1">Library</span>
+                <span class="action-txt danger hide-when-minimized" id="clearLibraryBtn">EJECT ALL</span>
+            </div>
+            <div id="library-list" class="scroll-area"><div style="padding:20px; text-align:center; opacity:0.5;">NO MEDIA LOADED</div></div>
+        </div>
+
+        <div class="panel-frame">
+            <div class="panel-header"><span>Active Queue</span><span class="action-txt" id="clearPlaylistBtn">CLEAR</span></div>
+            <div id="playlist-list" class="scroll-area"></div>
+            <div class="panel-footer" id="total-time-display">Queue: 0 Tracks</div>
+        </div>
+
+        <div class="panel-frame">
+            <div class="panel-header"><span>Presets</span><span class="action-txt" id="savePresetBtn">SAVE NEW</span></div>
+            <div id="preset-list" class="scroll-area"></div>
+        </div>
+    </div>
+</div>
+
+<div id="toast">Requires Analysis Mode</div>
+
+<script>
+    const DB_NAME = 'RadioWavDB';
+    const DB_VERSION = 7;
+    const STORE_PLAYLIST = 'playlist';
+    const STORE_LIBRARY = 'library';
+    const STORE_PRESETS = 'presets';
+    const STORE_SETTINGS = 'settings';
+
+    let db, playlistFiles = [], currentTrackIndex = -1, isDraggingScrubber = false;
+    let testEndTime = 10;
+    let pendingExportData = null; 
+    let seekOnLoadPending = false;
+    
+    // --- AUDIO ENGINE ---
+    let isAnalysisMode = false;
+    let isMono = false;
+    let currentAudio = null; 
+    let audioCtx = null;     
+    
+    let stereoPath = null, monoPath = null, preMaster = null, masterGain = null; 
+    let analyser = null; 
+    let splitter = null;
+    let analyserL = null, analyserR = null; 
+    
+    let mergerMS = null;
+    let gainMid = null;
+    let gainSide = null;
+    let analyserMid = null;
+    let analyserSide = null;
+
+    let mediaSource = null;
+    let scriptProcessor = null;
+    let rafID = null;        
+
+    // Stats & Config
+    let integratedSum = 0;
+    let integratedCount = 0;
+    let activeTab = 'spectrum';
+    let spectrumModeMS = false; 
+    
+    // VU Meter Physics
+    let decayL = 0, decayR = 0;
+    let peakHoldL = 0, peakHoldR = 0;
+    let peakHoldTimerL = 0, peakHoldTimerR = 0;
+    let maxPeakDb = -100;
+    
+    // SCOPE RING BUFFER
+    const HISTORY_SIZE = 500000; 
+    const scopeBuffer = new Float32Array(HISTORY_SIZE);
+    let scopeWritePos = 0;
+    let scopeTimebase = 10; // ms
+
+    // UI References
+    const libraryList = document.getElementById('library-list');
+    const playlistList = document.getElementById('playlist-list');
+    const presetList = document.getElementById('preset-list');
+    const scrubber = document.getElementById('scrubber');
+    const timeDisplay = document.getElementById('time-display');
+    const trackTitleDisplay = document.getElementById('track-title-display');
+    const totalTimeDisplay = document.getElementById('total-time-display');
+    const playBtn = document.getElementById('playBtn');
+    const monoBtn = document.getElementById('monoBtn');
+    const testEndInput = document.getElementById('testEndInput');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volContainer = document.getElementById('vol-control-container');
+    
+    const toggleAnalysisBtn = document.getElementById('toggleAnalysisBtn');
+    const toggleLabBtn = document.getElementById('toggleLabBtn');
+    const analysisLab = document.getElementById('analysisLab');
+    const spectrumOverlay = document.getElementById('spectrumOverlay');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const waterfallCanvas = document.getElementById('waterfallCanvas');
+    
+    const scopeControls = document.getElementById('scopeControls');
+    const scopeZoomSlider = document.getElementById('scopeZoom');
+    const spectrumModeBtn = document.getElementById('spectrumModeBtn');
+    
+    const lufsBox = document.getElementById('lufsDisplay');
+    const lufsValue = document.getElementById('lufsValue');
+    const lufsIntBox = document.getElementById('lufsIntegratedDisplay');
+    const lufsIntValue = document.getElementById('lufsIntegratedValue');
+    const plrBox = document.getElementById('plrDisplay');
+    const plrValue = document.getElementById('plrValue');
+    const phaseBox = document.getElementById('phaseDisplay');
+    const phaseValue = document.getElementById('phaseValue');
+    
+    const vuL = document.getElementById('vuL');
+    const vuR = document.getElementById('vuR');
+    const phL = document.getElementById('phL');
+    const phR = document.getElementById('phR');
+    const clipL = document.getElementById('clipL');
+    const clipR = document.getElementById('clipR');
+    const vuStack = document.getElementById('vuStack');
+    const maxPeakValue = document.getElementById('maxPeakValue');
+    const btnResetPeak = document.getElementById('btnResetPeak');
+    
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const exportOverlay = document.getElementById('exportOverlay');
+    const exportFilename = document.getElementById('exportFilename');
+    const toggleLibBtn = document.getElementById('toggleLibBtn');
+    const libraryPanel = document.getElementById('libraryPanel');
+    const mainDashboard = document.getElementById('mainDashboard');
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) volContainer.style.display = 'none';
+
+    // --- SCRUBBER EVENT LISTENERS ---
+    scrubber.addEventListener('input', () => { isDraggingScrubber = true; updateTimeDisplay(scrubber.value); });
+    scrubber.addEventListener('change', () => { if(currentAudio) { currentAudio.currentTime = scrubber.value; isDraggingScrubber = false; } });
+    scrubber.addEventListener('mousedown', () => isDraggingScrubber = true);
+    scrubber.addEventListener('touchstart', () => isDraggingScrubber = true, {passive: true});
+    scrubber.addEventListener('mouseup', () => isDraggingScrubber = false);
+    scrubber.addEventListener('touchend', () => isDraggingScrubber = false);
+
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg; t.classList.add("show");
+        setTimeout(() => { t.classList.remove("show"); }, 3000);
+    }
+
+    // --- TAB UI LOGIC ---
+    function updateLabTabUI() {
+        document.querySelectorAll('.lab-tab').forEach(t => t.classList.remove('active'));
+        const currentTabBtn = document.querySelector(`.lab-tab[data-tab="${activeTab}"]`);
+        if(currentTabBtn) currentTabBtn.classList.add('active');
+
+        // UI Toggle Logic - Explicitly run this every time
+        document.querySelectorAll('.scope-ui-only').forEach(el => el.style.display = activeTab === 'scope' ? 'inline-block' : 'none');
+        document.querySelectorAll('.spectrum-ui-only').forEach(el => el.style.display = activeTab === 'spectrum' ? 'inline-block' : 'none');
+        scopeControls.style.display = (activeTab === 'scope' || activeTab === 'spectrum') ? 'flex' : 'none';
+        
+        if(activeTab === 'waterfall') {
+            mainCanvas.style.display = 'none'; waterfallCanvas.style.display = 'block';
+        } else {
+            mainCanvas.style.display = 'block'; waterfallCanvas.style.display = 'none';
+        }
+    }
+
+    document.querySelectorAll('.lab-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            activeTab = tab.dataset.tab;
+            updateLabTabUI();
+        });
+    });
+    
+    // SCOPE ZOOM & PERSISTENCE
+    scopeZoomSlider.addEventListener('input', (e) => { 
+        scopeTimebase = parseInt(e.target.value); 
+    });
+    scopeZoomSlider.addEventListener('change', (e) => {
+        if(db) db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'scopeTimebase', value: parseInt(e.target.value) });
+    });
+    
+    // SPECTRUM MODE TOGGLE
+    spectrumModeBtn.addEventListener('click', () => {
+        spectrumModeMS = !spectrumModeMS;
+        spectrumModeBtn.textContent = spectrumModeMS ? "VIEW: M/S" : "VIEW: L/R";
+        spectrumModeBtn.style.borderColor = spectrumModeMS ? "var(--accent-color)" : "#555";
+        spectrumModeBtn.style.color = spectrumModeMS ? "var(--accent-color)" : "#fff";
+    });
+
+    toggleLabBtn.addEventListener('click', () => {
+        if (!isAnalysisMode) { showToast("Enable Analysis Mode First"); return; }
+        analysisLab.classList.toggle('open');
+        toggleLabBtn.classList.toggle('active');
+        updateLabTabUI(); // Ensure UI is correct when opening
+    });
+    
+    monoBtn.addEventListener('click', () => {
+        if (!isAnalysisMode) { showToast("Requires Analysis Mode"); return; }
+        isMono = !isMono;
+        if(isMono) { monoBtn.classList.add('active'); if(stereoPath && monoPath) { stereoPath.gain.value = 0; monoPath.gain.value = 1; } } 
+        else { monoBtn.classList.remove('active'); if(stereoPath && monoPath) { stereoPath.gain.value = 1; monoPath.gain.value = 0; } }
+    });
+    
+    // RESET CLIP LOGIC
+    function resetMaxPeak() {
+        maxPeakDb = -100;
+        maxPeakValue.textContent = "---";
+        clipL.classList.remove('latched');
+        clipR.classList.remove('latched');
+    }
+    
+    vuStack.addEventListener('click', (e) => { 
+        if(e.target.id !== 'btnResetPeak') resetMaxPeak(); 
+    });
+    btnResetPeak.addEventListener('click', (e) => { 
+        e.stopPropagation(); resetMaxPeak(); 
+    });
+
+    function showLoading(msg) { loadingOverlay.style.display = 'flex'; loadingOverlay.textContent = msg || 'Processing...'; }
+    function hideLoading() { loadingOverlay.style.display = 'none'; }
+
+    function createNewAudioPlayer() {
+        if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; currentAudio.load(); currentAudio = null; }
+        currentAudio = new Audio(); currentAudio.crossOrigin = "anonymous"; currentAudio.playsInline = true;
+        currentAudio.addEventListener('play', () => { playBtn.innerHTML = '&#10074;&#10074;'; });
+        currentAudio.addEventListener('pause', () => { playBtn.innerHTML = '▶'; });
+        currentAudio.addEventListener('timeupdate', () => { if (!isDraggingScrubber) { scrubber.value = currentAudio.currentTime; updateTimeDisplay(); } });
+        currentAudio.addEventListener('ended', () => { if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); else { scrubber.value = 0; } });
+        currentAudio.addEventListener('loadedmetadata', () => {
+            scrubber.max = currentAudio.duration; updateTimeDisplay();
+            if (seekOnLoadPending) {
+                let sec = parseInt(document.getElementById('testEndInput').value) || 10;
+                if(currentAudio.duration) { currentAudio.currentTime = Math.max(0, currentAudio.duration - sec); }
+                seekOnLoadPending = false;
+            }
+        });
+    }
+
+    toggleAnalysisBtn.addEventListener('click', () => {
+        if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; }
+        playBtn.innerHTML = '▶'; scrubber.value = 0; updateTimeDisplay(0); seekOnLoadPending = false;
+
+        if (!isAnalysisMode) {
+            if (isIOS && !confirm("ENABLE ANALYSIS MODE?\n\n- Volume Slider: ON\n- Background Audio: OFF")) return;
+            isAnalysisMode = true;
+            toggleAnalysisBtn.textContent = "Analysis: ON"; toggleAnalysisBtn.classList.add('active');
+            lufsBox.classList.add('active'); lufsIntBox.classList.add('active'); plrBox.classList.add('active'); phaseBox.classList.add('active');
+            spectrumOverlay.style.display = 'none'; toggleLabBtn.classList.remove('disabled');
+            if(isIOS) volContainer.style.display = 'flex';
+            createNewAudioPlayer(); initWebAudio(); 
+            updateLabTabUI();
+        } else {
+            isAnalysisMode = false;
+            toggleAnalysisBtn.textContent = "Analysis: OFF"; toggleAnalysisBtn.classList.remove('active');
+            lufsBox.classList.remove('active'); lufsIntBox.classList.remove('active'); plrBox.classList.remove('active'); phaseBox.classList.remove('active');
+            lufsValue.textContent = "---"; lufsIntValue.textContent = "---"; plrValue.textContent = "---"; phaseValue.textContent = "---";
+            phaseBox.classList.remove('phase-alert'); spectrumOverlay.style.display = 'flex';
+            vuL.style.width = '0%'; vuR.style.width = '0%'; phL.style.display = 'none'; phR.style.display = 'none';
+            resetMaxPeak();
+            toggleLabBtn.classList.add('disabled');
+            if(analysisLab.classList.contains('open')) { analysisLab.classList.remove('open'); toggleLabBtn.classList.remove('active'); }
+            if(isIOS) volContainer.style.display = 'none';
+            if(isMono) { isMono = false; monoBtn.classList.remove('active'); }
+            stopAnalysisLoop();
+            if(audioCtx) { audioCtx.close().catch(e=>console.log(e)); audioCtx = null; masterGain = null; mediaSource = null; }
+            createNewAudioPlayer();
+        }
+        updateVolume();
+    });
+
+    function initWebAudio() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            stereoPath = audioCtx.createGain(); 
+            monoPath = audioCtx.createGain(); monoPath.channelCount = 1; monoPath.channelCountMode = 'clamped-max'; 
+            preMaster = audioCtx.createGain(); preMaster.channelCount = 2; preMaster.channelCountMode = 'explicit'; 
+            masterGain = audioCtx.createGain();
+            
+            mediaSource = audioCtx.createMediaElementSource(currentAudio);
+            mediaSource.connect(stereoPath); mediaSource.connect(monoPath);
+            stereoPath.connect(preMaster); monoPath.connect(preMaster);
+            preMaster.connect(masterGain); masterGain.connect(audioCtx.destination);
+            
+            analyser = audioCtx.createAnalyser(); analyser.fftSize = 16384; analyser.smoothingTimeConstant = 0.85;
+            preMaster.connect(analyser);
+            
+            splitter = audioCtx.createChannelSplitter(2);
+            preMaster.connect(splitter);
+            
+            analyserL = audioCtx.createAnalyser(); analyserL.fftSize = 2048;
+            analyserR = audioCtx.createAnalyser(); analyserR.fftSize = 2048;
+            splitter.connect(analyserL, 0); splitter.connect(analyserR, 1);
+            
+            const midSum = audioCtx.createGain();
+            const sideSum = audioCtx.createGain();
+            splitter.connect(midSum, 0); splitter.connect(midSum, 1);
+            splitter.connect(sideSum, 0);
+            const inverter = audioCtx.createGain(); inverter.gain.value = -1;
+            splitter.connect(inverter, 1); inverter.connect(sideSum);
+            
+            analyserMid = audioCtx.createAnalyser(); analyserMid.fftSize = 16384; analyserMid.smoothingTimeConstant = 0.85;
+            analyserSide = audioCtx.createAnalyser(); analyserSide.fftSize = 16384; analyserSide.smoothingTimeConstant = 0.85;
+            
+            midSum.connect(analyserMid); sideSum.connect(analyserSide);
+
+            scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+            scriptProcessor.connect(audioCtx.destination); 
+            scriptProcessor.onaudioprocess = (e) => {
+                if(!isAnalysisMode) return;
+                const input = e.inputBuffer.getChannelData(0);
+                for (let i = 0; i < input.length; i++) {
+                    scopeBuffer[scopeWritePos] = input[i];
+                    scopeWritePos = (scopeWritePos + 1) % HISTORY_SIZE;
+                }
+            };
+            preMaster.connect(scriptProcessor);
+
+            if(isMono) { stereoPath.gain.value = 0; monoPath.gain.value = 1; }
+            else { stereoPath.gain.value = 1; monoPath.gain.value = 0; }
+            
+            startAnalysisLoop();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function startAnalysisLoop() {
+        if(rafID) cancelAnimationFrame(rafID);
+        
+        const timeDomainBuffer = new Float32Array(analyser.fftSize); 
+        const freqBuffer = new Uint8Array(analyser.frequencyBinCount); 
+        
+        const freqBufferM = new Uint8Array(analyser.frequencyBinCount);
+        const freqBufferS = new Uint8Array(analyser.frequencyBinCount);
+        
+        const bufferL = new Float32Array(2048);
+        const bufferR = new Float32Array(2048);
+        
+        const ctx = mainCanvas.getContext('2d');
+        const wCtx = waterfallCanvas.getContext('2d');
+        
+        let accumulator = 0;
+        let frames = 0;
+        let lastUpdateTime = 0;
+        let maxPeak = 0;
+        
+        const checkResize = () => {
+            if (!analysisLab.classList.contains('open')) return;
+            const rect = analysisLab.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.floor(rect.width);
+            const height = 200; 
+            if(mainCanvas.style.width !== width + 'px') {
+                mainCanvas.style.width = width + 'px'; mainCanvas.style.height = height + 'px';
+                waterfallCanvas.style.width = width + 'px'; waterfallCanvas.style.height = height + 'px';
+            }
+            if(mainCanvas.width !== width * dpr) {
+                mainCanvas.width = width * dpr; mainCanvas.height = height * dpr; ctx.scale(dpr, dpr);
+                waterfallCanvas.width = width * dpr; waterfallCanvas.height = height * dpr;
+            }
+        };
+
+        function draw(time) {
+            if (!isAnalysisMode || !analyser) return;
+            checkResize(); 
+            
+            analyser.getFloatTimeDomainData(timeDomainBuffer); 
+            analyser.getByteFrequencyData(freqBuffer);
+            analyserL.getFloatTimeDomainData(bufferL); 
+            analyserR.getFloatTimeDomainData(bufferR);
+            
+            if(spectrumModeMS && activeTab === 'spectrum') {
+                analyserMid.getByteFrequencyData(freqBufferM);
+                analyserSide.getByteFrequencyData(freqBufferS);
+            }
+
+            // MATHS
+            let sum = 0; let currentPeak = 0;
+            for (let i = 0; i < timeDomainBuffer.length; i++) { 
+                const amp = timeDomainBuffer[i]; sum += amp * amp; 
+                const abs = Math.abs(amp); if(abs > currentPeak) currentPeak = abs;
+            }
+            if(currentPeak > maxPeak) maxPeak = currentPeak;
+            let frameMeanSquare = sum / timeDomainBuffer.length;
+            let frameRms = Math.sqrt(frameMeanSquare);
+            accumulator += frameRms; frames++;
+            if (frameMeanSquare > 0) { integratedSum += frameMeanSquare; integratedCount++; }
+            
+            // VU Calculations
+            let pL = 0, pR = 0;
+            for (let i = 0; i < bufferL.length; i+=4) {
+                if (Math.abs(bufferL[i]) > pL) pL = Math.abs(bufferL[i]);
+                if (Math.abs(bufferR[i]) > pR) pR = Math.abs(bufferR[i]);
+            }
+            
+            // 1. Update Max Peak Text
+            let currentMax = Math.max(pL, pR);
+            let currentMaxDb = 20 * Math.log10(currentMax);
+            if(currentMaxDb > maxPeakDb) {
+                maxPeakDb = currentMaxDb;
+                if(maxPeakDb > 0) maxPeakDb = 0;
+                maxPeakValue.textContent = maxPeakDb.toFixed(1) + "dB";
+            }
+
+            // 2. Decay Physics
+            decayL = Math.max(pL, decayL * 0.90);
+            decayR = Math.max(pR, decayR * 0.90);
+            
+            // 3. Peak Hold Logic
+            if (pL > peakHoldL) { peakHoldL = pL; peakHoldTimerL = time + 1500; }
+            else if (time > peakHoldTimerL) { peakHoldL *= 0.95; }
+            
+            if (pR > peakHoldR) { peakHoldR = pR; peakHoldTimerR = time + 1500; }
+            else if (time > peakHoldTimerR) { peakHoldR *= 0.95; }
+
+            // 4. Clip Latching
+            if (pL >= 0.99) clipL.classList.add('latched');
+            if (pR >= 0.99) clipR.classList.add('latched');
+            
+            // Correlation
+            let slr = 0, sl2 = 0, sr2 = 0;
+            for(let i=0; i<bufferL.length; i+=4) { 
+                slr += bufferL[i] * bufferR[i]; sl2 += bufferL[i] * bufferL[i]; sr2 += bufferR[i] * bufferR[i];
+            }
+            const den = Math.sqrt(sl2 * sr2); let corr = den > 0.0001 ? slr / den : 0;
+
+            if (time - lastUpdateTime > 50) { 
+                // Update UI
+                vuL.style.width = (decayL * 100) + '%';
+                vuR.style.width = (decayR * 100) + '%';
+                
+                phL.style.display = 'block'; phL.style.left = (peakHoldL * 100) + '%';
+                phR.style.display = 'block'; phR.style.left = (peakHoldR * 100) + '%';
+                
+                phaseValue.textContent = corr.toFixed(2);
+                if (corr < 0) phaseBox.classList.add('phase-alert'); else phaseBox.classList.remove('phase-alert');
+
+                if (time - lastUpdateTime > 1000) {
+                    if (frames > 0) {
+                        let avgRms = accumulator / frames;
+                        let db = 20 * Math.log10(avgRms); if (db < -100 || !isFinite(db)) db = -100;
+                        lufsValue.textContent = db.toFixed(1);
+                        let peakDb = 20 * Math.log10(maxPeak); if (peakDb < -100) peakDb = -100;
+                        let plr = peakDb - db; if(plr < 0) plr = 0;
+                        plrValue.textContent = plr.toFixed(1);
+                    }
+                    if (integratedCount > 0) {
+                        let sessionAvgPower = integratedSum / integratedCount;
+                        let intDb = 10 * Math.log10(sessionAvgPower); if (intDb < -100 || !isFinite(intDb)) intDb = -100;
+                        lufsIntValue.textContent = intDb.toFixed(1);
+                    } else lufsIntValue.textContent = "---";
+                    accumulator = 0; frames = 0; lastUpdateTime = time; maxPeak = 0;
+                }
+            }
+            
+            if (analysisLab.classList.contains('open')) {
+                const w = parseFloat(mainCanvas.style.width);
+                const h = parseFloat(mainCanvas.style.height);
+                
+                if (activeTab === 'spectrum') {
+                    ctx.clearRect(0, 0, w, h);
+                    const nyquist = audioCtx.sampleRate / 2;
+                    const totalBins = freqBuffer.length;
+                    const minLog = Math.log10(20); const maxLog = Math.log10(22050); const scale = w / (maxLog - minLog);
+                    
+                    // GRID
+                    ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                    [{f:20,t:'20'},{f:100,t:'100'},{f:1000,t:'1k'},{f:5000,t:'5k'},{f:10000,t:'10k'},{f:20000,t:'20k'}].forEach(l => {
+                        const x = (Math.log10(l.f)-minLog)*scale; if(x>=0 && x<=w) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); ctx.fillText(l.t, x, h-5); }
+                    });
+                    ctx.textAlign = 'right';
+                    [0, -20, -40, -60].forEach(db => {
+                        const yPos = (db === 0) ? 10 : Math.abs(db/60) * h; 
+                        if(yPos < h) { ctx.beginPath(); ctx.moveTo(0,yPos); ctx.lineTo(w,yPos); ctx.stroke(); ctx.fillText(db+"dB", w-5, yPos+3); }
+                    });
+
+                    if (!spectrumModeMS) {
+                        ctx.beginPath(); ctx.moveTo(0, h);
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBuffer[binIndex];
+                            ctx.lineTo(x, h - (value / 255) * h);
+                        }
+                        ctx.lineTo(w, h); ctx.closePath();
+                        const g = ctx.createLinearGradient(0, h, 0, 0); g.addColorStop(0, '#0ea5e9'); g.addColorStop(1, '#8b5cf6');
+                        ctx.fillStyle = g; ctx.fill();
+                    } else {
+                        ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2; ctx.beginPath();
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBufferM[binIndex];
+                            const y = h - (value / 255) * h;
+                            if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                        }
+                        ctx.stroke();
+                        ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2; ctx.beginPath();
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBufferS[binIndex];
+                            const y = h - (value / 255) * h;
+                            if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                        }
+                        ctx.stroke();
+                        ctx.fillStyle = '#22d3ee'; ctx.fillText("MID", w-40, 30);
+                        ctx.fillStyle = '#f97316'; ctx.fillText("SIDE", w-40, 42);
+                    }
+
+                } else if (activeTab === 'scope') {
+                    ctx.clearRect(0, 0, w, h);
+                    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 1; ctx.beginPath();
+                    const samplesToShow = Math.floor(audioCtx.sampleRate * (scopeTimebase / 1000));
+                    let readPos = scopeWritePos - samplesToShow; if (readPos < 0) readPos += HISTORY_SIZE;
+                    const samplesPerPixel = samplesToShow / w;
+                    if (samplesPerPixel >= 1.0) {
+                        for (let i = 0; i < w; i++) {
+                            let start = Math.floor(i * samplesPerPixel); let end = Math.floor((i + 1) * samplesPerPixel);
+                            let min = 1.0, max = -1.0;
+                            for(let j=start; j<end; j++) {
+                                let idx = (readPos + j) % HISTORY_SIZE; let val = scopeBuffer[idx];
+                                if(val < min) min = val; if(val > max) max = val;
+                            }
+                            if (min > max) { min = 0; max = 0; }
+                            const yMin = (h / 2) + (min * h / 2 * -1); const yMax = (h / 2) + (max * h / 2 * -1);
+                            ctx.moveTo(i, yMin); ctx.lineTo(i, yMax);
+                        }
+                    } else {
+                        for (let i = 0; i < w; i++) {
+                            let sampleIdx = Math.floor(i * samplesPerPixel); let idx = (readPos + sampleIdx) % HISTORY_SIZE;
+                            const v = scopeBuffer[idx]; const y = (h / 2) + (v * h / 2 * -1);
+                            if(i === 0) ctx.moveTo(i, y); else ctx.lineTo(i, y);
+                        }
+                    }
+                    ctx.stroke();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth=1; 
+                    ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace';
+                    ctx.textAlign = 'left'; ctx.fillText("+1.0", 5, 12); ctx.fillText("-1.0", 5, h-5);
+                    ctx.textAlign = 'right'; ctx.fillText(scopeTimebase + "ms", w-5, h-5);
+
+                } else if (activeTab === 'vector') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0,0,w,h);
+                    const cx = w / 2; const cy = (h - 20) / 2; const r = (h - 30) / 2;
+                    ctx.fillStyle = corr < 0 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(56, 189, 248, 0.8)';
+                    for(let i=0; i<bufferL.length; i+=8) {
+                        const l = bufferL[i]; const vr = bufferR[i];
+                        const x = (vr - l) * r + cx; const y = (vr + l) * r * -1 + cy;
+                        ctx.fillRect(x, y, 2, 2);
+                    }
+                    ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign='center';
+                    ctx.fillText("M", cx, 10); ctx.fillText("S", 10, cy); ctx.fillText("S", w-10, cy);
+                    ctx.fillText("L", cx-r+10, cy-r+10); ctx.fillText("R", cx+r-10, cy-r+10);
+                    const by = h - 10; const bw = 200; const bx = (w - bw) / 2;
+                    ctx.fillStyle = '#333'; ctx.fillRect(bx, by, bw, 6);
+                    ctx.fillStyle = '#fff'; ctx.fillRect(w/2, by-2, 1, 10);
+                    const ix = w/2 + (corr * (bw/2));
+                    ctx.fillStyle = corr >= 0 ? '#10b981' : '#ef4444'; ctx.beginPath(); ctx.arc(ix, by+3, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.fillText("-1", bx - 15, by+6); ctx.fillText("+1", bx + bw + 15, by+6);
+
+                } else if (activeTab === 'waterfall') {
+                    const ww = waterfallCanvas.width; const wh = waterfallCanvas.height;
+                    wCtx.drawImage(waterfallCanvas, 0, 0, ww, wh - 1, 0, 1, ww, wh - 1);
+                    const bw = ww / 128; const bs = Math.floor(freqBuffer.length / 128);
+                    for (let i = 0; i < 128; i++) {
+                        let v = freqBuffer[i * bs];
+                        const hue = 240 - (v / 255) * 240;
+                        wCtx.fillStyle = `hsl(${hue}, 100%, 50%)`; wCtx.fillRect(i * bw, 0, bw + 1, 1);
+                    }
+                    wCtx.fillStyle = 'rgba(0,0,0,0.8)'; wCtx.fillRect(0, wh-30, ww, 30);
+                    wCtx.fillStyle = '#fff'; wCtx.font = '20px monospace'; wCtx.textAlign = 'center';
+                    [{t:'Low',p:0.1}, {t:'Mid',p:0.5}, {t:'High',p:0.9}].forEach(l=>{ wCtx.fillText(l.t, ww*l.p, wh-10); });
+                }
+            }
+            rafID = requestAnimationFrame(draw);
+        }
+        rafID = requestAnimationFrame(draw);
+    }
+    
+    function stopAnalysisLoop() { if(rafID) cancelAnimationFrame(rafID); rafID = null; }
+
+    function initDB() {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_LIBRARY)) db.createObjectStore(STORE_LIBRARY, { keyPath: 'name' });
+            if (!db.objectStoreNames.contains(STORE_PRESETS)) db.createObjectStore(STORE_PRESETS, { keyPath: 'name' });
+            if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+            if (db.objectStoreNames.contains(STORE_PLAYLIST)) db.deleteObjectStore(STORE_PLAYLIST);
+            db.createObjectStore(STORE_PLAYLIST, { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = (e) => { db = e.target.result; refreshAllUI(); };
+    }
+
+    function refreshAllUI() { createNewAudioPlayer(); loadLibraryFromDB(); loadPlaylistFromDB(); loadPresetsFromDB(); loadSettingsFromDB(); }
+
+    function playTrack(index) {
+        if (index < 0 || index >= playlistFiles.length) return;
+        integratedSum = 0; integratedCount = 0; lufsIntValue.textContent = "---";
+        resetMaxPeak(); // RESET PEAK ON TRACK CHANGE
+        if (isAnalysisMode) initWebAudio();
+        const trackName = playlistFiles[index].name;
+        trackTitleDisplay.textContent = trackName;
+        db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).get(trackName).onsuccess = (e) => {
+            const result = e.target.result;
+            if(result && result.blob) {
+                if (currentAudio.src) URL.revokeObjectURL(currentAudio.src);
+                currentAudio.src = URL.createObjectURL(result.blob);
+                currentAudio.load(); updateVolume();
+                currentAudio.play().then(() => {
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName, artist: 'sandboxRADIO', album: 'Analysis Lab' });
+                        navigator.mediaSession.setActionHandler('play', () => currentAudio.play());
+                        navigator.mediaSession.setActionHandler('pause', () => currentAudio.pause());
+                        navigator.mediaSession.setActionHandler('previoustrack', () => playTrack(index-1));
+                        navigator.mediaSession.setActionHandler('nexttrack', () => playTrack(index+1));
+                    }
+                }).catch(err => console.error(err));
+                currentTrackIndex = index; renderPlaylistUI();
+            } else { if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); }
+        };
+    }
+
+    function stopTrack() { currentAudio.pause(); currentAudio.currentTime = 0; trackTitleDisplay.textContent = "---"; }
+    function saveToLibraryDB(files) {
+        showLoading("Importing...");
+        const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+        Array.from(files).forEach(f => { if(f.name.toLowerCase().endsWith('.wav')) tx.objectStore(STORE_LIBRARY).put({ name: f.name, blob: f }); });
+        tx.oncomplete = () => { hideLoading(); loadLibraryFromDB(); };
+    }
+    function addToPlaylistDB(fileName) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).add({ name: fileName }); tx.oncomplete = loadPlaylistFromDB; }
+    function loadPlaylistFromDB() { db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => { playlistFiles = e.target.result.map(i => ({ id: i.id, name: i.name })); renderPlaylistUI(); updateQueueStats(); }; }
+    function loadLibraryFromDB() {
+        db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onsuccess = (e) => {
+            const files = e.target.result; libraryList.innerHTML = '';
+            if (files.length === 0) { libraryList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.5;">NO MEDIA LOADED</div>'; return; }
+            files.sort((a,b) => a.name.localeCompare(b.name));
+            files.forEach(rec => {
+                const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
+                el.innerHTML = `<span class="trunc-text" title="${rec.name}">${rec.name}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
+                el.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('type', 'library'); ev.dataTransfer.setData('name', rec.name); });
+                el.querySelector('.add-btn').addEventListener('click', () => addToPlaylistDB(rec.name));
+                el.querySelector('.remove-btn').addEventListener('click', (ev) => { ev.stopPropagation(); const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).delete(rec.name); tx.oncomplete=loadLibraryFromDB; });
+                el.addEventListener('dblclick', () => addToPlaylistDB(rec.name));
+                libraryList.appendChild(el);
+            });
+        };
+    }
+    function renderPlaylistUI() {
+        playlistList.innerHTML = '';
+        if(playlistFiles.length === 0) { playlistList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.5;">QUEUE EMPTY</div>'; updateQueueStats(); return; }
+        playlistFiles.forEach((track, index) => {
+            const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
+            if(index === currentTrackIndex) el.classList.add('active');
+            let moveButtons = '';
+            if (playlistFiles.length > 1) {
+                const uv = index === 0 ? 'visibility:hidden' : '';
+                const dv = index === playlistFiles.length - 1 ? 'visibility:hidden' : '';
+                moveButtons = `<span class="icon-btn move-btn" style="${uv}">▲</span><span class="icon-btn move-btn" style="${dv}">▼</span>`;
+            }
+            el.innerHTML = `<span class="trunc-text">${index+1}. ${track.name}</span><div class="icon-group">${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
+            el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('type', 'playlist-sort'); e.dataTransfer.setData('index', index); });
+            el.addEventListener('dragover', (e) => e.preventDefault());
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.getData('type') === 'playlist-sort') {
+                    const fromIndex = parseInt(e.dataTransfer.getData('index')); 
+                    if (fromIndex !== index) {
+                        const moved = playlistFiles.splice(fromIndex, 1)[0];
+                        playlistFiles.splice(index, 0, moved);
+                        if(currentTrackIndex === fromIndex) currentTrackIndex = index;
+                        else if(currentTrackIndex > fromIndex && currentTrackIndex <= index) currentTrackIndex--;
+                        else if(currentTrackIndex < fromIndex && currentTrackIndex >= index) currentTrackIndex++;
+                        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); const s = tx.objectStore(STORE_PLAYLIST); s.clear(); playlistFiles.forEach(i=>s.add({name:i.name})); tx.oncomplete=loadPlaylistFromDB;
+                    }
+                }
+            });
+            addTouchGuardedClick(el, () => playTrack(index));
+            const btns = el.querySelectorAll('.icon-btn');
+            if(btns.length===3) {
+                btns[0].addEventListener('click', (e)=>{e.stopPropagation(); moveTrack(index, -1);});
+                btns[1].addEventListener('click', (e)=>{e.stopPropagation(); moveTrack(index, 1);});
+                btns[2].addEventListener('click', (e)=>{e.stopPropagation(); deleteFromPlaylist(track.id, index);});
+            } else {
+                btns[0].addEventListener('click', (e)=>{e.stopPropagation(); deleteFromPlaylist(track.id, index);});
+            }
+            playlistList.appendChild(el);
+        });
+    }
+    
+    function moveTrack(index, dir) {
+        const target = index + dir; if(target<0||target>=playlistFiles.length)return;
+        const t = playlistFiles[index]; playlistFiles[index]=playlistFiles[target]; playlistFiles[target]=t;
+        if(currentTrackIndex===index)currentTrackIndex=target; else if(currentTrackIndex===target)currentTrackIndex=index;
+        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); const s = tx.objectStore(STORE_PLAYLIST); s.clear(); playlistFiles.forEach(i=>s.add({name:i.name})); tx.oncomplete=loadPlaylistFromDB;
+    }
+    function deleteFromPlaylist(id, index) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).delete(id); tx.oncomplete = () => { if(currentTrackIndex===index) stopTrack(); loadPlaylistFromDB(); }; }
+    function addTouchGuardedClick(el, cb) { let sy; let drag=false; el.addEventListener('touchstart', (e)=>{sy=e.touches[0].clientY;drag=false;},{passive:true}); el.addEventListener('touchmove', (e)=>{if(Math.abs(e.touches[0].clientY-sy)>10)drag=true;},{passive:true}); el.addEventListener('click', (e)=>{if(drag){e.preventDefault();return;} cb(e);}); }
+    function loadPresetsFromDB() {
+        db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onsuccess = (e) => {
+            presetList.innerHTML = '';
+            e.target.result.forEach(p => {
+                const el = document.createElement('div'); el.className = 'preset-item';
+                el.innerHTML = `<span class="trunc-text">${p.name} (${p.tracks.length})</span> <span class="icon-btn remove-btn">×</span>`;
+                addTouchGuardedClick(el, () => { 
+                    if(confirm("Load Preset?")) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); p.tracks.forEach(n => tx.objectStore(STORE_PLAYLIST).add({ name: n })); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; }
+                });
+                el.querySelector('.remove-btn').addEventListener('click', (ev) => { ev.stopPropagation(); if(confirm("Delete?")) { const t = db.transaction([STORE_PRESETS], 'readwrite'); t.objectStore(STORE_PRESETS).delete(p.name); t.oncomplete = loadPresetsFromDB; } });
+                presetList.appendChild(el);
+            });
+        };
+    }
+    function setLibraryState(minimized) {
+        if (minimized) { mainDashboard.classList.add('minimized'); libraryPanel.classList.add('collapsed'); toggleLibBtn.textContent = '[+]'; } 
+        else { mainDashboard.classList.remove('minimized'); libraryPanel.classList.remove('collapsed'); toggleLibBtn.textContent = '[-]'; }
+        libraryList.style.display = ''; libraryPanel.style.height = '';
+    }
+    function loadSettingsFromDB() {
+        const tx = db.transaction([STORE_SETTINGS], 'readonly'); const store = tx.objectStore(STORE_SETTINGS);
+        store.get('testEndTime').onsuccess = (e) => { if(e.target.result) { testEndTime = parseInt(e.target.result.value); testEndInput.value = testEndTime; } };
+        store.get('libraryMinimized').onsuccess = (e) => { if(e.target.result && e.target.result.value === true) setLibraryState(true); };
+        store.get('masterVolume').onsuccess = (e) => { if(e.target.result) { volumeSlider.value = e.target.result.value; updateVolume(); } };
+        store.get('scopeTimebase').onsuccess = (e) => { if(e.target.result) { scopeTimebase = parseInt(e.target.result.value); scopeZoomSlider.value = scopeTimebase; } };
+    }
+    function updateVolume() { const v = parseFloat(volumeSlider.value); if (isAnalysisMode && masterGain) masterGain.gain.value = v; else if (!isIOS && currentAudio) currentAudio.volume = v; }
+    volumeSlider.addEventListener('input', updateVolume);
+    volumeSlider.addEventListener('change', (e) => { if(db) db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'masterVolume', value: parseFloat(e.target.value) }); });
+    function updateTimeDisplay(override) { const curr = override !== undefined ? override : currentAudio.currentTime; timeDisplay.textContent = `${formatTime(curr)} / ${formatTime(currentAudio.duration || 0)}`; }
+    function formatTime(s) { if (!s || isNaN(s)) return "0:00"; const m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc.toString().padStart(2, '0')}`; }
+    function updateQueueStats() { totalTimeDisplay.textContent = `Queue: ${playlistFiles.length} Tracks`; }
+
+    document.getElementById('testEndBtn').addEventListener('click', () => {
+        let sec = parseInt(testEndInput.value) || 10;
+        db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'testEndTime', value: sec });
+        if(isAnalysisMode) initWebAudio();
+        if (currentAudio.duration > 0 && !currentAudio.paused) { currentAudio.currentTime = Math.max(0, currentAudio.duration - sec); return; }
+        seekOnLoadPending = true; if(playlistFiles.length > 0) playTrack(currentTrackIndex >= 0 ? currentTrackIndex : 0);
+    });
+    document.getElementById('toggleLibBtn').addEventListener('click', () => {
+        const isCurrentlyCollapsed = libraryPanel.classList.contains('collapsed'); setLibraryState(!isCurrentlyCollapsed);
+        db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'libraryMinimized', value: !isCurrentlyCollapsed });
+    });
+    document.getElementById('playAllBtn').addEventListener('click', () => { if(playlistFiles.length) playTrack(0); });
+    document.getElementById('stopBtn').addEventListener('click', stopTrack);
+    document.getElementById('prevTrackBtn').addEventListener('click', () => { if(currentTrackIndex > 0) playTrack(currentTrackIndex - 1); });
+    document.getElementById('nextTrackBtn').addEventListener('click', () => { if(currentTrackIndex < playlistFiles.length - 1) playTrack(currentTrackIndex + 1); });
+    document.getElementById('rewindBtn').addEventListener('click', () => currentAudio.currentTime -= 5);
+    document.getElementById('forwardBtn').addEventListener('click', () => currentAudio.currentTime += 5);
+    
+    // Play Button Action
+    playBtn.addEventListener('click', () => { 
+        if (isAnalysisMode) initWebAudio();
+        if(!currentAudio.src && playlistFiles.length) { playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); }
+        else if(currentAudio.paused) { currentAudio.play(); } else { currentAudio.pause(); } 
+    });
+
+    // File/Export Handlers
+    document.getElementById('btnLoadFolder').addEventListener('click', () => { const i = document.getElementById('folderInput'); i.value = ''; i.click(); });
+    document.getElementById('folderInput').addEventListener('change', (e) => saveToLibraryDB(e.target.files));
+    document.getElementById('btnLoadFiles').addEventListener('click', () => { const i = document.getElementById('fileInput'); i.value = ''; i.click(); });
+    document.getElementById('fileInput').addEventListener('change', (e) => saveToLibraryDB(e.target.files));
+    document.getElementById('btnImport').addEventListener('click', () => { const i = document.getElementById('importInput'); i.value = ''; i.click(); });
+    document.getElementById('importInput').addEventListener('change', (e) => { if(e.target.files[0]) { const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); if(confirm("Restore?")) { const tx=db.transaction([STORE_PRESETS],'readwrite'); tx.objectStore(STORE_PRESETS).clear(); d.presets.forEach(p=>tx.objectStore(STORE_PRESETS).put(p)); setTimeout(loadPresetsFromDB,500); } } catch(e){alert("Err");} }; r.readAsText(e.target.files[0]); }});
+    document.getElementById('clearLibraryBtn').addEventListener('click', () => { if(confirm("Eject All?")) { const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).clear(); tx.oncomplete=loadLibraryFromDB; } });
+    document.getElementById('clearPlaylistBtn').addEventListener('click', () => { if(confirm("Clear Queue?")) { const tx=db.transaction([STORE_PLAYLIST],'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; } });
+    document.getElementById('savePresetBtn').addEventListener('click', () => { if(playlistFiles.length===0)return alert("Empty"); const n=prompt("Name:"); if(n) { const tx=db.transaction([STORE_PRESETS],'readwrite'); tx.objectStore(STORE_PRESETS).put({name:n, tracks:playlistFiles.map(p=>p.name)}); tx.oncomplete=loadPresetsFromDB; } });
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        exportOverlay.style.display='flex'; const active = playlistFiles.map(p=>p.name);
+        db.transaction([STORE_PRESETS],'readonly').objectStore(STORE_PRESETS).getAll().onsuccess=(e)=>{ pendingExportData={type:'sandboxRADIO_backup', date:new Date(), activeQueue:active, presets:e.target.result}; exportFilename.value=`sandboxRADIO_Backup_${new Date().toISOString().slice(0,10)}`; };
+    });
+    document.getElementById('btnActionSave').addEventListener('click', ()=>{ if(pendingExportData) { const b=new Blob([JSON.stringify(pendingExportData)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=exportFilename.value+'.json'; a.click(); exportOverlay.style.display='none'; } });
+    document.getElementById('btnActionCancel').addEventListener('click', ()=>exportOverlay.style.display='none');
+    document.getElementById('btnActionCopy').addEventListener('click', ()=>{ if(pendingExportData) { navigator.clipboard.writeText(JSON.stringify(pendingExportData)); alert("Copied!"); exportOverlay.style.display='none'; } });
+    
+    // INIT
+    window.addEventListener('load', () => {
+        initDB();
+        updateLabTabUI(); // Ensure Spectrum UI is visible on load
+    });
+</script>
+
+</body>
+</html>

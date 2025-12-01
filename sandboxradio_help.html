@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sandboxRADIO - User Manual</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #d4d4d4;
+            --accent: #ea580c;
+            --header-bg: #2b2b2b;
+            --border: #444;
+            --code-bg: #000;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: var(--header-bg);
+            padding: 20px;
+            border-bottom: 3px solid var(--accent);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-weight: 900;
+            font-size: 1.8rem;
+            color: #fff;
+            font-style: italic;
+        }
+        .logo span { color: var(--accent); }
+        
+        .version-tag {
+            background: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        /* Typography */
+        h1, h2, h3 { color: #fff; margin-top: 1.5em; }
+        h1 { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        h2 { color: var(--accent); font-size: 1.4rem; }
+        h3 { font-size: 1.1rem; border-left: 3px solid var(--accent); padding-left: 10px; background: rgba(255,255,255,0.05); padding-top: 5px; padding-bottom: 5px;}
+
+        p { margin-bottom: 1em; }
+        
+        ul { list-style-type: square; margin-bottom: 1.5em; color: #bbb; }
+        li { margin-bottom: 0.5em; }
+        
+        strong { color: #fff; }
+        code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-family: monospace; color: var(--accent); }
+
+        /* Sections */
+        .section {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .alert {
+            background: rgba(234, 88, 12, 0.15);
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        /* Quick Grid */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media(max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .button-ref {
+            display: inline-block;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.8rem;
+            color: #666;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">sandbox<span>RADIO</span></div>
+        <div class="version-tag">Manual v101</div>
+    </div>
+
+    <div class="container">
+
+        <div class="section">
+            <h1>Introduction</h1>
+            <p><strong>sandboxRADIO</strong> is a high-fidelity, local-first WAV player and analysis tool. It runs entirely in your web browser and is designed for audio engineers, producers, and audiophiles who need to inspect, manage, and play uncompressed audio files without uploading them to a server.</p>
+            <p>It features a persistent database that remembers your library, playlists, and analysis settings even after you close the browser.</p>
+        </div>
+
+        <div class="section">
+            <h1>Getting Started: Loading Files</h1>
+            <p>sandboxRADIO plays files directly from your device's storage. Because it is a web app, loading methods vary by platform.</p>
+
+            <h3>Desktop (Windows / Mac / Linux)</h3>
+            <ul>
+                <li><strong>Load Folder:</strong> Click <span class="button-ref">Load Folder</span> to select a directory. The player will scan the folder (and subfolders in some browsers) for all <code>.wav</code> files.</li>
+                <li><strong>Load Files:</strong> Click <span class="button-ref">Load Files</span> to select specific files. You can hold <code>Ctrl</code> or <code>Cmd</code> to select multiple files at once.</li>
+                <li><strong>Drag & Drop:</strong> You can drag files directly from your file explorer into the Library panel.</li>
+            </ul>
+
+            <h3>iOS (iPhone / iPad)</h3>
+            <div class="alert">
+                <strong>Note for iOS Users:</strong> iOS Safari has strict file access rules.
+            </div>
+            <ul>
+                <li>Tap <span class="button-ref">Load Files</span>.</li>
+                <li>Select <strong>"Choose Files"</strong>. This will open the Files app.</li>
+                <li>Navigate to "On My iPhone" or "iCloud Drive" where your WAVs are stored.</li>
+                <li>Tap <strong>Select</strong> in the top right corner, tap all the WAV files you want to import, then tap <strong>Open</strong>.</li>
+                <li><em>Tip:</em> If you have a folder, you often still need to enter the folder and select the actual files inside.</li>
+            </ul>
+
+            <h3>Android</h3>
+            <ul>
+                <li>Tap <span class="button-ref">Load Folder</span> to grant permission to a specific directory of music.</li>
+                <li>Alternatively, use <span class="button-ref">Load Files</span> to pick specific tracks from your Audio or Downloads folder.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h1>The Player Deck</h1>
+            <p>The main controls operate like a standard hardware CD player or deck.</p>
+
+            <div class="grid-2">
+                <div>
+                    <h3>Transport Controls</h3>
+                    <ul>
+                        <li><strong>TOP:</strong> Stops playback and returns to the very beginning of the first track in the Queue.</li>
+                        <li><strong>|&lt; & &gt;|:</strong> Previous / Next Track.</li>
+                        <li><strong>&laquo; & &raquo;:</strong> Rewind / Fast Forward (5 seconds).</li>
+                        <li><strong>Play/Pause (▶):</strong> Toggles playback.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Utility Controls</h3>
+                    <ul>
+                        <li><strong>Test End:</strong> Instantly jumps to the last few seconds of the track (default 10s). Useful for checking crossfades or endings. You can change the duration in the input box next to it.</li>
+                        <li><strong>VOL:</strong> Master volume fader.</li>
+                        <li><strong>Scrubber:</strong> Drag the slider under the time display to scrub through audio.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h1>The Meter Bridge (Telemetry)</h1>
+            <p>When <strong>Analysis Mode</strong> is active, the meter bridge provides professional-grade audio measurements.</p>
+
+            <h3>Loudness (LUFS)</h3>
+            <ul>
+                <li><strong>M (Momentary):</strong> Measures loudness over a 400ms window. Useful for checking instant levels.</li>
+                <li><strong>I (Integrated):</strong> The average loudness of the entire track since playback started. This is the standard for broadcast/streaming delivery (e.g., -14 LUFS). It resets when a new track starts.</li>
+                <li><strong>PLR (Peak-to-Loudness Ratio):</strong> Measures dynamic range. A high number (14+) means dynamic; a low number (6-) means heavily compressed/limited.</li>
+            </ul>
+
+            <h3>Phase Correlation (CORR)</h3>
+            <ul>
+                <li><strong>+1.0:</strong> Perfect Mono.</li>
+                <li><strong>0 to +1:</strong> Normal Stereo.</li>
+                <li><strong>Negative Values:</strong> Out of phase issues. If the box turns <strong>RED</strong>, check your mix for phase cancellation.</li>
+            </ul>
+
+            <h3>VU & Peak Meters</h3>
+            <ul>
+                <li><strong>Bar Meters:</strong> Show instant signal level.</li>
+                <li><strong>Peak Hold:</strong> A white line stays at the highest point reached recently.</li>
+                <li><strong>Clip LEDs:</strong> The red lights at the far right light up if you hit -0.1dB or higher. They latch (stay on) until reset.</li>
+                <li><strong>MAX:</strong> Displays the highest decibel peak reached during the session.</li>
+                <li><strong>RST (Reset):</strong> Clicking this button (under the MAX label) clears the peak value and turns off the red clip lights.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h1>The Analysis Lab</h1>
+            <p>Click the <span class="button-ref">LAB</span> button to open the visual analysis suite. <br><em>Note: You must enable "Analysis: ON" for these displays to function.</em></p>
+
+            <h3>1. Spectrum</h3>
+            <p>A real-time Frequency Analyzer (20Hz - 20kHz).</p>
+            <ul>
+                <li><strong>VIEW: L/R:</strong> Shows Left and Right channels superimposed.</li>
+                <li><strong>VIEW: M/S:</strong> Shows Mid (center information) vs Side (stereo width information). Useful for checking how wide your mix is.</li>
+            </ul>
+
+            <h3>2. Scope (Oscilloscope)</h3>
+            <p>Visualizes the waveform shape.</p>
+            <ul>
+                <li><strong>Zoom Slider:</strong> Adjusts the timebase from 10ms (extreme zoom) to 5000ms. sandboxRADIO remembers your preferred zoom level between sessions.</li>
+            </ul>
+
+            <h3>3. Vector (Goniometer)</h3>
+            <p>Visualizes stereo width. A thin vertical line is Mono. A round "ball" is complex stereo. A flat horizontal line is out of phase.</p>
+
+            <h3>4. Waterfall</h3>
+            <p>A moving spectrogram that shows frequency intensity over time. Hot colors (Red/Yellow) are loud; Cool colors (Blue/Purple) are quiet.</p>
+        </div>
+
+        <div class="section">
+            <h1>Data & Backup</h1>
+            <p>sandboxRADIO uses a browser-based database (IndexedDB). Your library stays on your computer, but clearing your browser history/data will wipe it.</p>
+
+            <h3>Backup System</h3>
+            <p>To prevent data loss or to move your library to another computer:</p>
+            <ol>
+                <li>Click <span class="button-ref">Backup System</span>.</li>
+                <li>Choose <strong>Save to File</strong> to download a <code>.json</code> file.</li>
+                <li>On the new device, click <span class="button-ref">Restore Backup</span> and select that file.</li>
+            </ol>
+            <p><em>Note: This backs up the list of file names, presets, and settings. It does <strong>not</strong> back up the actual audio WAV files. You must reload the audio files on the new device.</em></p>
+        </div>
+
+        <div class="section">
+            <h1>FAQ</h1>
+            <ul>
+                <li><strong>Why is there no sound on iOS in "Analysis Mode"?</strong><br> Ensure your ringer switch is not set to Silent. WebAudio on iOS respects the hardware mute switch.</li>
+                <li><strong>Can I play MP3s?</strong><br> Currently, sandboxRADIO is optimized for <code>.wav</code> files for accurate metering, though some browsers may accept MP3s via the file loader.</li>
+                <li><strong>Where is the Reset button on Mobile?</strong><br> On mobile devices, the Reset button appears in the Volume control row as "MAX RST" to make it easier to tap. On desktop, it is located in the Meter Bridge.</li>
+                <li><strong>How do I factory reset?</strong><br> If the app crashes or freezes, there is a small "FACTORY RESET" text button in the bottom right corner of the chassis screw. Clicking this wipes the database and reloads the page.</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <footer>
+        &copy; 2025 sandboxRADIO Audio Tools. Local First.
+    </footer>
+
+</body>
+</html>
