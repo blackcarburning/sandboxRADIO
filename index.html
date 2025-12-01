@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player V101 - Rebrand</title>
+    <title>sandboxRADIO Player V102</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -61,6 +61,8 @@
         }
         .btn:active { transform: translateY(3px); box-shadow: 0 0 0 #000; }
         .btn-help { color: var(--accent-color); border-color: #664400; }
+        /* KO-FI STYLE */
+        .btn-donate { color: #ff5f5f; border-color: #552222; }
 
         input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 
@@ -392,6 +394,7 @@
         <button class="btn" id="exportBtn">Backup System</button>
         <button class="btn" id="btnImport">Restore Backup</button>
         <input type="file" id="importInput" accept="*">
+        <button class="btn btn-donate" id="btnDonate">Donate</button>
         <button class="btn btn-help" id="btnHelp" onclick="window.open('http://92.236.31.65/sandboxradio_help.html', '_blank')">Help</button>
     </div>
 
@@ -1251,6 +1254,9 @@
     document.getElementById('btnActionCancel').addEventListener('click', ()=>exportOverlay.style.display='none');
     document.getElementById('btnActionCopy').addEventListener('click', ()=>{ if(pendingExportData) { navigator.clipboard.writeText(JSON.stringify(pendingExportData)); alert("Copied!"); exportOverlay.style.display='none'; } });
     
+    // DONATE
+    document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
+
     // INIT
     window.addEventListener('load', () => {
         initDB();
