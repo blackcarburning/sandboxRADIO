@@ -75,10 +75,10 @@
         .btn-group {
             display: flex;
             gap: 5px;
-            align-items: center;
+            flex-wrap: wrap;
         }
-        .mobile-text { display: none; }
-        .desktop-text { display: inline; }
+        .mobile-only { display: none; }
+        .desktop-only { display: inline; }
 
         input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 
@@ -360,6 +360,11 @@
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 60px; }
 
+        @media (max-width: 600px) {
+            .desktop-only { display: none; }
+            .mobile-only { display: inline; }
+        }
+
         @media (max-width: 1000px) {
             .radio-chassis { height: 100vh; border-radius: 0; border: none; padding: 5px; width: 100%; }
             .dashboard, .dashboard.minimized { display: flex; flex-direction: column; overflow-y: auto; flex: 1; grid-template-columns: none; }
@@ -376,8 +381,6 @@
             .icon-group { gap: 5px; }
             .top-deck { justify-content: center; }
             .btn-group { flex-wrap: wrap; justify-content: center; }
-            .mobile-text { display: inline; }
-            .desktop-text { display: none; }
         }
     </style>
 </head>
@@ -407,14 +410,14 @@
     <div class="top-deck">
         <div class="logo">sandbox<span>RADIO</span><span id="versionTag" class="version-display"></span></div>
         <div class="btn-group">
-            <button class="btn" id="btnLoadFolder"><span class="desktop-text">Load Folder</span><span class="mobile-text">Folder</span></button>
+            <button class="btn" id="btnLoadFolder"><span class="desktop-only">Load Folder</span><span class="mobile-only">Folder</span></button>
             <input type="file" id="folderInput" webkitdirectory directory multiple>
-            <button class="btn" id="btnLoadFiles"><span class="desktop-text">Load Files</span><span class="mobile-text">Files</span></button>
+            <button class="btn" id="btnLoadFiles"><span class="desktop-only">Load Files</span><span class="mobile-only">Files</span></button>
             <input type="file" id="fileInput" multiple accept=".wav">
         </div>
         <div class="btn-group">
-            <button class="btn" id="exportBtn"><span class="desktop-text">Backup System</span><span class="mobile-text">Backup</span></button>
-            <button class="btn" id="btnImport"><span class="desktop-text">Restore Backup</span><span class="mobile-text">Restore</span></button>
+            <button class="btn" id="exportBtn"><span class="desktop-only">Backup System</span><span class="mobile-only">Backup</span></button>
+            <button class="btn" id="btnImport"><span class="desktop-only">Restore Backup</span><span class="mobile-only">Restore</span></button>
             <input type="file" id="importInput" accept="*">
         </div>
         <div class="btn-group">
