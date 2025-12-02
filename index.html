@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.0.4</title>
+    <title>sandboxRADIO Player v1.0.5</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -405,6 +405,7 @@
         <input type="file" id="importInput" accept="*">
         <button class="btn btn-donate" id="btnDonate">Donate</button>
         <button class="btn btn-help" id="btnHelp" onclick="window.open('sandboxradio_help.html', '_blank')">Help</button>
+        <button class="btn" id="btnGitHub" onclick="window.open('https://github.com/blackcarburning/sandboxRADIO', '_blank')">GitHub</button>
     </div>
 
     <div class="player-deck">
@@ -515,7 +516,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.0.4';
+    const APP_VERSION = 'v1.0.5';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
