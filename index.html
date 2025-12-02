@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.0.6</title>
+    <title>sandboxRADIO Player v1.0.7</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -77,6 +77,8 @@
             gap: 5px;
             align-items: center;
         }
+        .mobile-text { display: none; }
+        .desktop-text { display: inline; }
 
         input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 
@@ -369,9 +371,13 @@
             .player-deck { padding: 5px; gap: 5px; }
             .speaker-grill { display: none; }
             .logo { font-size: 1rem; }
-            .btn { padding: 6px 8px; font-size: 0.7rem; }
+            .btn { padding: 4px 8px; font-size: 0.7rem; }
             .track-item, .preset-item { padding: 6px 4px; }
             .icon-group { gap: 5px; }
+            .top-deck { justify-content: center; }
+            .btn-group { flex-wrap: wrap; justify-content: center; }
+            .mobile-text { display: inline; }
+            .desktop-text { display: none; }
         }
     </style>
 </head>
@@ -401,14 +407,14 @@
     <div class="top-deck">
         <div class="logo">sandbox<span>RADIO</span><span id="versionTag" class="version-display"></span></div>
         <div class="btn-group">
-            <button class="btn" id="btnLoadFolder">Load Folder</button>
+            <button class="btn" id="btnLoadFolder"><span class="desktop-text">Load Folder</span><span class="mobile-text">Folder</span></button>
             <input type="file" id="folderInput" webkitdirectory directory multiple>
-            <button class="btn" id="btnLoadFiles">Load Files</button>
+            <button class="btn" id="btnLoadFiles"><span class="desktop-text">Load Files</span><span class="mobile-text">Files</span></button>
             <input type="file" id="fileInput" multiple accept=".wav">
         </div>
         <div class="btn-group">
-            <button class="btn" id="exportBtn">Backup System</button>
-            <button class="btn" id="btnImport">Restore Backup</button>
+            <button class="btn" id="exportBtn"><span class="desktop-text">Backup System</span><span class="mobile-text">Backup</span></button>
+            <button class="btn" id="btnImport"><span class="desktop-text">Restore Backup</span><span class="mobile-text">Restore</span></button>
             <input type="file" id="importInput" accept="*">
         </div>
         <div class="btn-group">
@@ -526,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.0.6';
+    const APP_VERSION = 'v1.0.7';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
