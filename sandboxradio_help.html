@@ -133,7 +133,7 @@
 
     <div class="header">
         <div class="logo">sandbox<span>RADIO</span></div>
-        <div class="version-tag">Manual v102</div>
+        <div class="version-tag">Manual v1.0.7</div>
     </div>
 
     <div class="container">
@@ -142,6 +142,34 @@
             <h1>Introduction</h1>
             <p><strong>sandboxRADIO</strong> is a high-fidelity, local-first WAV player and analysis tool. It runs entirely in your web browser and is designed for audio engineers, producers, and audiophiles who need to inspect, manage, and play uncompressed audio files without uploading them to a server.</p>
             <p>It features a persistent database that remembers your library, playlists, and analysis settings even after you close the browser.</p>
+        </div>
+
+        <div class="section">
+            <h1>Interface & Layout</h1>
+            <p>The sandboxRADIO interface is designed to be both powerful and accessible across all devices.</p>
+
+            <h3>Top Deck Layout</h3>
+            <p>The <strong>Top Deck</strong> is the main control bar at the top of the application. It contains the logo, version tag, and three button groups:</p>
+            <ul>
+                <li><strong>Files Group:</strong> <span class="button-ref">Load Folder</span> and <span class="button-ref">Load Files</span> for importing audio into your library.</li>
+                <li><strong>System Group:</strong> <span class="button-ref">Backup System</span> and <span class="button-ref">Restore Backup</span> for saving and restoring your presets and queue settings.</li>
+                <li><strong>Community Group:</strong> <span class="button-ref">Donate</span>, <span class="button-ref">Help</span>, and <span class="button-ref">GitHub</span> for support and contributions.</li>
+            </ul>
+
+            <h3>Button Groups</h3>
+            <p>Buttons are organized into logical groups that wrap responsively on smaller screens. This ensures all controls remain accessible on mobile devices without horizontal scrolling.</p>
+
+            <h3>Mobile Responsive Text</h3>
+            <div class="alert">
+                <strong>Note:</strong> On screens narrower than 1000 pixels, button labels are shortened for a compact layout:
+            </div>
+            <ul>
+                <li>"Load Folder" → "Folder"</li>
+                <li>"Load Files" → "Files"</li>
+                <li>"Backup System" → "Backup"</li>
+                <li>"Restore Backup" → "Restore"</li>
+            </ul>
+            <p>This allows the full interface to remain usable on smartphones and tablets.</p>
         </div>
 
         <div class="section">
@@ -222,21 +250,25 @@
 
         <div class="section">
             <h1>The Meter Bridge & Analysis</h1>
-            <p><strong>Analysis Mode</strong> must be ON for these features.</p>
+            <p>Click the <span class="button-ref">Analysis: OFF</span> button to enable <strong>Analysis Mode</strong>. This activates the Web Audio API for real-time metering and visualization. The button will change to <span class="button-ref">Analysis: ON</span> when active.</p>
+            <div class="alert">
+                <strong>Note:</strong> On iOS devices, enabling Analysis Mode will show a confirmation dialog and enable the volume slider.
+            </div>
 
             <div class="grid-2">
                 <div>
-                    <h3>Telemetry</h3>
+                    <h3>Telemetry Meters</h3>
                     <ul>
-                        <li><strong>LUFS (M):</strong> Momentary loudness (400ms).</li>
-                        <li><strong>LUFS (I):</strong> Integrated loudness (entire track average). Resets on track change.</li>
+                        <li><strong>LUFS (M):</strong> Momentary loudness (400ms window).</li>
+                        <li><strong>LUFS (I):</strong> Integrated loudness (entire track average). Automatically resets on track change.</li>
                         <li><strong>PLR:</strong> Peak-to-Loudness Ratio (Dynamics). High = Dynamic, Low = Compressed.</li>
-                        <li><strong>CORR:</strong> Phase Correlation. Red means out-of-phase.</li>
+                        <li><strong>CORR:</strong> Phase Correlation (-1 to +1). Red indicates out-of-phase audio.</li>
                     </ul>
                 </div>
                 <div>
-                    <h3>Resetting Peaks</h3>
+                    <h3>Peak Metering & Clipping</h3>
                     <ul>
+                        <li><strong>VU Meters:</strong> Visual representation of Left/Right channel levels with peak hold indicators.</li>
                         <li><strong>MAX:</strong> Shows the highest dB peak hit during playback.</li>
                         <li><strong>Clip Lights:</strong> Red bars on the far right latch on if you hit 0dB.</li>
                         <li><strong>RST:</strong> Click the <code>RST</code> button located under the "MAX" label to clear the numeric value and turn off the red lights.</li>
@@ -245,18 +277,29 @@
             </div>
 
             <h3>The Lab (Visuals)</h3>
-            <p>Click <span class="button-ref">LAB</span> to open.</p>
+            <p>Click <span class="button-ref">LAB</span> to open the Analysis Lab panel. This requires Analysis Mode to be enabled.</p>
             <ul>
-                <li><strong>Spectrum:</strong> Frequency Analyzer. Toggle between L/R view or Mid/Side view.</li>
-                <li><strong>Scope:</strong> Waveform view. Use the slider to Zoom from 10ms (detail) to 5000ms (overview).</li>
-                <li><strong>Vector:</strong> Stereo width visualizer (Goniometer).</li>
-                <li><strong>Waterfall:</strong> Heatmap of frequency over time.</li>
+                <li><strong>Spectrum:</strong> Frequency Analyzer with logarithmic scale. Toggle between L/R view or Mid/Side view using the VIEW button.</li>
+                <li><strong>Scope:</strong> Oscilloscope waveform view. Use the Timebase slider to zoom from 10ms (detail) to 5000ms (overview).</li>
+                <li><strong>Vector:</strong> Stereo width visualizer (Goniometer) with correlation meter.</li>
+                <li><strong>Waterfall:</strong> Spectrogram heatmap showing frequency content over time.</li>
             </ul>
         </div>
 
         <div class="section">
-            <h1>Support Development</h1>
+            <h1>Community & Support</h1>
             <p>sandboxRADIO is free, open-source, and ad-free software. It is developed by an audio engineer for audio engineers.</p>
+            
+            <h3>GitHub Repository</h3>
+            <p>Click the <span class="button-ref">GitHub</span> button in the Top Deck to visit the official repository. There you can:</p>
+            <ul>
+                <li>View the source code</li>
+                <li>Report bugs or request features</li>
+                <li>Contribute to development</li>
+                <li>Star the project to show your support</li>
+            </ul>
+
+            <h3>Support Development</h3>
             <p>If this tool has helped your workflow, saved you time, or just made checking your mixes easier, consider buying me a coffee to support future updates!</p>
             
             <a href="https://ko-fi.com/blackcarburning" target="_blank" class="btn-kofi">☕ Buy Me a Coffee</a>
