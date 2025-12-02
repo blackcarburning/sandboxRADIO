@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.0.8</title>
+    <title>sandboxRADIO Player v1.0.9</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -532,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.0.8';
+    const APP_VERSION = 'v1.0.9';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
@@ -790,7 +790,7 @@
             preMaster.connect(masterGain); masterGain.connect(audioCtx.destination);
             
             analyser = audioCtx.createAnalyser(); analyser.fftSize = 16384; analyser.smoothingTimeConstant = 0.85;
-            preMaster.connect(analyser);
+            masterGain.connect(analyser);
             
             splitter = audioCtx.createChannelSplitter(2);
             preMaster.connect(splitter);
