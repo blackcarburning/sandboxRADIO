@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.0.5</title>
+    <title>sandboxRADIO Player v1.0.6</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -71,6 +71,11 @@
             margin-left: 6px;
             display: inline-block;
             vertical-align: middle;
+        }
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
         }
 
         input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
@@ -395,17 +400,22 @@
 
     <div class="top-deck">
         <div class="logo">sandbox<span>RADIO</span><span id="versionTag" class="version-display"></span></div>
-        <button class="btn" id="btnLoadFolder">Load Folder</button>
-        <input type="file" id="folderInput" webkitdirectory directory multiple>
-        <button class="btn" id="btnLoadFiles">Load Files</button>
-        <input type="file" id="fileInput" multiple accept=".wav">
-        <div style="flex:1"></div>
-        <button class="btn" id="exportBtn">Backup System</button>
-        <button class="btn" id="btnImport">Restore Backup</button>
-        <input type="file" id="importInput" accept="*">
-        <button class="btn btn-donate" id="btnDonate">Donate</button>
-        <button class="btn btn-help" id="btnHelp" onclick="window.open('sandboxradio_help.html', '_blank')">Help</button>
-        <button class="btn" id="btnGitHub" onclick="window.open('https://github.com/blackcarburning/sandboxRADIO', '_blank')">GitHub</button>
+        <div class="btn-group">
+            <button class="btn" id="btnLoadFolder">Load Folder</button>
+            <input type="file" id="folderInput" webkitdirectory directory multiple>
+            <button class="btn" id="btnLoadFiles">Load Files</button>
+            <input type="file" id="fileInput" multiple accept=".wav">
+        </div>
+        <div class="btn-group">
+            <button class="btn" id="exportBtn">Backup System</button>
+            <button class="btn" id="btnImport">Restore Backup</button>
+            <input type="file" id="importInput" accept="*">
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-donate" id="btnDonate">Donate</button>
+            <button class="btn btn-help" id="btnHelp" onclick="window.open('sandboxradio_help.html', '_blank')">Help</button>
+            <button class="btn" id="btnGitHub" onclick="window.open('https://github.com/blackcarburning/sandboxRADIO', '_blank')">GitHub</button>
+        </div>
     </div>
 
     <div class="player-deck">
@@ -516,7 +526,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.0.5';
+    const APP_VERSION = 'v1.0.6';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
