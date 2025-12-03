@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.12-DEBUG</title>
+    <title>sandboxRADIO Player v1.1.17</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -450,7 +450,7 @@
         <div class="btn-group">
             <button class="btn" id="exportBtn"><span class="desktop-text">Backup System</span><span class="mobile-text">Backup</span></button>
             <button class="btn" id="btnImport"><span class="desktop-text">Restore Backup</span><span class="mobile-text">Restore</span></button>
-            <input type="file" id="importInput" accept="*">
+            <input type="file" id="importInput" accept=".json,application/json,text/json">
         </div>
         <div class="btn-group">
             <button class="btn btn-donate" id="btnDonate">Donate</button>
@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.16';
+    const APP_VERSION = 'v1.1.17';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
