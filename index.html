@@ -807,8 +807,12 @@
         currentAudio.addEventListener('error', (e) => { 
             log('currentAudio: error event - ' + (e.message || 'Unknown error'));
         });
-        currentAudio.addEventListener('ended', () => { 
-            if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); else { scrubber.value = 0; } 
+        currentAudio.addEventListener('ended', async () => { 
+            try {
+                if (currentTrackIndex + 1 < playlistFiles.length) await playTrack(currentTrackIndex + 1); else { scrubber.value = 0; }
+            } catch(e) {
+                log('Error in ended handler: ' + String(e));
+            }
         });
         currentAudio.addEventListener('timeupdate', () => { if (!isDraggingScrubber) { scrubber.value = currentAudio.currentTime; updateTimeDisplay(); } });
         currentAudio.addEventListener('loadedmetadata', () => {
@@ -832,7 +836,8 @@
             lufsBox.classList.add('active'); lufsIntBox.classList.add('active'); plrBox.classList.add('active'); phaseBox.classList.add('active');
             spectrumOverlay.style.display = 'none'; toggleLabBtn.classList.remove('disabled');
             if(isIOS) volContainer.style.display = 'flex';
-            createNewAudioPlayer(); initWebAudio(); 
+            createNewAudioPlayer(); 
+            initWebAudio().catch(e => log('Error in initWebAudio: ' + String(e))); 
             updateLabTabUI();
         } else {
             isAnalysisMode = false;
@@ -1195,11 +1200,11 @@
 
     function refreshAllUI() { createNewAudioPlayer(); loadLibraryFromDB(); loadPlaylistFromDB(); loadPresetsFromDB(); loadSettingsFromDB(); }
 
-    function playTrack(index) {
+    async function playTrack(index) {
         if (index < 0 || index >= playlistFiles.length) return;
         integratedSum = 0; integratedCount = 0; lufsIntValue.textContent = "---";
         resetMaxPeak(); // RESET PEAK ON TRACK CHANGE
-        if (isAnalysisMode) initWebAudio();
+        if (isAnalysisMode) await initWebAudio();
         const trackName = playlistFiles[index].name;
         trackTitleDisplay.textContent = trackName;
         db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).get(trackName).onsuccess = (e) => {
@@ -1330,21 +1335,21 @@
     function formatTime(s) { if (!s || isNaN(s)) return "0:00"; const m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc.toString().padStart(2, '0')}`; }
     function updateQueueStats() { totalTimeDisplay.textContent = `Queue: ${playlistFiles.length} Tracks`; }
 
-    document.getElementById('testEndBtn').addEventListener('click', () => {
+    document.getElementById('testEndBtn').addEventListener('click', async () => {
         let sec = parseInt(testEndInput.value) || 10;
         db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'testEndTime', value: sec });
-        if(isAnalysisMode) initWebAudio();
+        if(isAnalysisMode) await initWebAudio();
         if (currentAudio.duration > 0 && !currentAudio.paused) { currentAudio.currentTime = Math.max(0, currentAudio.duration - sec); return; }
-        seekOnLoadPending = true; if(playlistFiles.length > 0) playTrack(currentTrackIndex >= 0 ? currentTrackIndex : 0);
+        seekOnLoadPending = true; if(playlistFiles.length > 0) await playTrack(currentTrackIndex >= 0 ? currentTrackIndex : 0);
     });
     document.getElementById('toggleLibBtn').addEventListener('click', () => {
         const isCurrentlyCollapsed = libraryPanel.classList.contains('collapsed'); setLibraryState(!isCurrentlyCollapsed);
         db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'libraryMinimized', value: !isCurrentlyCollapsed });
     });
-    document.getElementById('playAllBtn').addEventListener('click', () => { if(playlistFiles.length) playTrack(0); });
+    document.getElementById('playAllBtn').addEventListener('click', async () => { if(playlistFiles.length) await playTrack(0); });
     document.getElementById('stopBtn').addEventListener('click', stopTrack);
-    document.getElementById('prevTrackBtn').addEventListener('click', () => { if(currentTrackIndex > 0) playTrack(currentTrackIndex - 1); });
-    document.getElementById('nextTrackBtn').addEventListener('click', () => { if(currentTrackIndex < playlistFiles.length - 1) playTrack(currentTrackIndex + 1); });
+    document.getElementById('prevTrackBtn').addEventListener('click', async () => { if(currentTrackIndex > 0) await playTrack(currentTrackIndex - 1); });
+    document.getElementById('nextTrackBtn').addEventListener('click', async () => { if(currentTrackIndex < playlistFiles.length - 1) await playTrack(currentTrackIndex + 1); });
     document.getElementById('rewindBtn').addEventListener('click', () => currentAudio.currentTime -= 5);
     document.getElementById('forwardBtn').addEventListener('click', () => currentAudio.currentTime += 5);
     
@@ -1352,7 +1357,7 @@
     playBtn.addEventListener('click', async () => {
         log('Play button clicked');
         if(!currentAudio.src && playlistFiles.length) { 
-            playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); 
+            await playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); 
         }
         else if(currentAudio.paused) {
             if (isAnalysisMode) {
@@ -1360,7 +1365,7 @@
                 await initWebAudio();
                 log('Audio Engine Ready. Calling play()');
             }
-            currentAudio.play();
+            await currentAudio.play().catch(e => log('Error in play(): ' + String(e)));
         } else { 
             currentAudio.pause(); 
         } 
@@ -1448,7 +1453,7 @@
                 const ctxToClose = audioCtx;
                 audioCtx = null; // Immediately null to prevent synchronous access
                 ctxToClose.close().catch((e) => {
-                    log('Error closing audio context: ' + e.message);
+                    log('Error closing audio context: ' + String(e));
                 });
             }
         } else {
