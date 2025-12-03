@@ -532,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.1.7';
+    const APP_VERSION = 'v1.1.8';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
@@ -1262,7 +1262,12 @@
         if (isAnalysisMode) initWebAudio();
         if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume(); }
         if(!currentAudio.src && playlistFiles.length) { playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); }
-        else if(currentAudio.paused) { currentAudio.play(); } else { currentAudio.pause(); } 
+        else if(currentAudio.paused) {
+            if (isAnalysisMode) {
+                initWebAudio();
+            }
+            currentAudio.play();
+        } else { currentAudio.pause(); } 
     });
 
     // File/Export Handlers
