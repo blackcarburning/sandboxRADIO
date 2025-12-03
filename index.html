@@ -902,6 +902,7 @@
             warmUp.buffer = audioCtx.createBuffer(1, 1, 22050); 
             warmUp.connect(audioCtx.destination);
             warmUp.start(0);
+            warmUp.disconnect(); // Clean up after starting
             log('initWebAudio: Created new AudioContext');
             
             stereoPath = audioCtx.createGain(); 
