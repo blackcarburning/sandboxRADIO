@@ -1429,6 +1429,8 @@
         if(pendingExportData) { 
             const jsonStr = JSON.stringify(pendingExportData);
             const filename = exportFilename.value + '.json';
+            // Delay for showing user instructions after popup (allows time for popup to render)
+            const INSTRUCTION_DELAY_MS = 500;
             
             // iOS Safari-specific handling
             if (isIOS) {
@@ -1440,14 +1442,16 @@
                     // Try window.open first (most reliable on iOS)
                     const newWindow = window.open(dataStr, '_blank');
                     
-                    if (newWindow) {
+                    // Check if popup was allowed (note: not 100% reliable but best available)
+                    // We attempt both paths to maximize compatibility
+                    if (newWindow && !newWindow.closed) {
                         log('iOS backup: window.open succeeded');
                         // Give user instructions since iOS can't set filename automatically
                         setTimeout(() => {
                             alert('To save the backup on iOS:\n\n1. In the new tab, tap and hold the text\n2. Select "Select All"\n3. Tap "Share" and choose "Save to Files"\n4. Save as: ' + filename);
-                        }, 500);
+                        }, INSTRUCTION_DELAY_MS);
                     } else {
-                        log('iOS backup: window.open blocked, trying alternative');
+                        log('iOS backup: window.open blocked or unavailable, trying alternative');
                         // Fallback: create an anchor with data URI and try clicking
                         const a = document.createElement('a');
                         a.href = dataStr;
@@ -1458,7 +1462,7 @@
                         
                         setTimeout(() => {
                             alert('If the download did not start:\n\nPlease use "Copy to Clipboard" instead and paste the backup into a text file manually.');
-                        }, 500);
+                        }, INSTRUCTION_DELAY_MS);
                     }
                 } catch (error) {
                     log('iOS backup error: ' + String(error));
