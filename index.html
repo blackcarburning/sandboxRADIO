@@ -883,7 +883,14 @@
                 currentAudio.playsInline = true;
                 setupAudioEvents(currentAudio);
                 currentAudio.src = savedSrc;
-                currentAudio.currentTime = savedTime;
+                
+                // Set currentTime after metadata loads to avoid timing issues
+                currentAudio.addEventListener('loadedmetadata', () => {
+                    if (savedTime > 0) {
+                        currentAudio.currentTime = savedTime;
+                    }
+                }, { once: true });
+                
                 log('initWebAudio: Recreated HTMLAudioElement to match new AudioContext');
             }
             
