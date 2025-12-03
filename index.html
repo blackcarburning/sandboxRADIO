@@ -1442,13 +1442,12 @@
                     // Try window.open first (most reliable on iOS)
                     const newWindow = window.open(dataStr, '_blank');
                     
-                    // Check if popup was allowed (note: not 100% reliable but best available)
-                    // We attempt both paths to maximize compatibility
-                    if (newWindow && !newWindow.closed) {
+                    // Check if popup was allowed (null = blocked, or closed immediately)
+                    if (newWindow && newWindow !== null && !newWindow.closed) {
                         log('iOS backup: window.open succeeded');
-                        // Give user instructions since iOS can't set filename automatically
+                        // Give user instructions - work for Safari, Chrome, Firefox on iOS
                         setTimeout(() => {
-                            alert('To save the backup on iOS:\n\n1. In the new tab, tap and hold the text\n2. Select "Select All"\n3. Tap "Share" and choose "Save to Files"\n4. Save as: ' + filename);
+                            alert('To save the backup:\n\n1. In the new tab, tap and hold the content\n2. Select "Select All" from the menu\n3. Tap "Share" or "Copy"\n4. Choose "Save to Files" and name it: ' + filename);
                         }, INSTRUCTION_DELAY_MS);
                     } else {
                         log('iOS backup: window.open blocked or unavailable, trying alternative');
@@ -1460,8 +1459,16 @@
                         a.click();
                         document.body.removeChild(a);
                         
+                        // Only show alert if we have reason to believe it failed
+                        // Brief delay allows the browser to process the download attempt
                         setTimeout(() => {
-                            alert('If the download did not start:\n\nPlease use "Copy to Clipboard" instead and paste the backup into a text file manually.');
+                            if (confirm('Did the download start?\n\nClick "Cancel" if it worked, or "OK" to use Copy to Clipboard instead.')) {
+                                navigator.clipboard.writeText(jsonStr).then(() => {
+                                    alert('Backup copied to clipboard! Paste it into a text file and save as: ' + filename);
+                                }).catch(() => {
+                                    alert('Please use the "Copy to Clipboard" button manually.');
+                                });
+                            }
                         }, INSTRUCTION_DELAY_MS);
                     }
                 } catch (error) {
