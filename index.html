@@ -360,43 +360,6 @@
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 60px; }
 
-        /* DEBUG OVERLAY */
-        #debugOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 3000; display: none;
-            flex-direction: column; align-items: center; justify-content: center;
-            padding: 20px;
-        }
-        .debug-box {
-            background: #1a1a1a; border: 2px solid var(--accent-color); border-radius: 8px;
-            width: 95%; max-width: 800px; height: 90%; max-height: 600px;
-            display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0,0,0,1);
-        }
-        .debug-header {
-            background: #222; color: var(--accent-color); padding: 12px 20px;
-            font-weight: bold; font-size: 1.1rem; border-bottom: 2px solid var(--accent-color);
-            border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center;
-        }
-        .debug-content {
-            flex: 1; overflow-y: auto; padding: 15px; background: #0a0a0a;
-        }
-        .debug-log {
-            font-family: 'Courier New', monospace; font-size: 0.75rem; color: #0f0;
-            white-space: pre-wrap; word-break: break-all; line-height: 1.4;
-        }
-        .debug-actions {
-            display: flex; gap: 10px; padding: 15px; background: #111;
-            border-top: 1px solid #333; border-radius: 0 0 6px 6px;
-        }
-        .debug-btn {
-            flex: 1; padding: 10px; border: none; border-radius: 4px;
-            font-weight: bold; text-transform: uppercase; cursor: pointer;
-            font-size: 0.85rem;
-        }
-        .debug-btn-refresh { background: #3b82f6; color: white; }
-        .debug-btn-copy { background: #10b981; color: white; }
-        .debug-btn-close { background: #ef4444; color: white; }
-
         @media (max-width: 1000px) {
             .radio-chassis { height: 100vh; border-radius: 0; border: none; padding: 5px; width: 100%; }
             .dashboard, .dashboard.minimized { display: flex; flex-direction: column; overflow-y: auto; flex: 1; grid-template-columns: none; }
@@ -441,23 +404,6 @@
 
     <div id="loadingOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:50;display:none;align-items:center;justify-content:center;color:white;font-weight:bold;">Processing...</div>
 
-    <div id="debugOverlay">
-        <div class="debug-box">
-            <div class="debug-header">
-                <span aria-label="Debug Console">🔍 DEBUG CONSOLE</span>
-                <span style="font-size: 0.8rem; color: #888;">sandboxRADIO Diagnostics</span>
-            </div>
-            <div class="debug-content">
-                <pre id="debugLog" class="debug-log"></pre>
-            </div>
-            <div class="debug-actions">
-                <button class="debug-btn debug-btn-refresh" id="btnDebugRefresh">🔄 Refresh Stats</button>
-                <button class="debug-btn debug-btn-copy" id="btnDebugCopy">📋 Copy Logs</button>
-                <button class="debug-btn debug-btn-close" id="btnDebugClose">✖ Close</button>
-            </div>
-        </div>
-    </div>
-
     <div class="top-deck">
         <div class="logo">sandbox<span>RADIO</span><span id="versionTag" class="version-display"></span></div>
         <div class="btn-group">
@@ -475,7 +421,6 @@
             <button class="btn btn-donate" id="btnDonate">Donate</button>
             <button class="btn btn-help" id="btnHelp" onclick="window.open('sandboxradio_help.html', '_blank')">Help</button>
             <button class="btn" id="btnGitHub" onclick="window.open('https://github.com/blackcarburning/sandboxRADIO', '_blank')">GitHub</button>
-            <button class="btn" id="btnDebug" style="background: linear-gradient(to bottom, #f59e0b, #d97706); color: #000; border-color: #92400e;">DEBUG</button>
         </div>
     </div>
 
@@ -594,19 +539,6 @@
     const STORE_LIBRARY = 'library';
     const STORE_PRESETS = 'presets';
     const STORE_SETTINGS = 'settings';
-
-    // --- DEBUG LOGGING SYSTEM ---
-    let appLogs = [];
-    function log(msg) {
-        const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
-        const logEntry = `[${timestamp}] ${msg}`;
-        appLogs.push(logEntry);
-        console.log(logEntry); // Also log to browser console
-        // Keep only last 100 entries to prevent memory issues
-        if (appLogs.length > 100) {
-            appLogs.shift();
-        }
-    }
 
     let db, playlistFiles = [], currentTrackIndex = -1, isDraggingScrubber = false;
     let testEndTime = 10;
@@ -797,32 +729,19 @@
         if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; currentAudio.load(); currentAudio = null; }
         currentAudio = new Audio(); currentAudio.crossOrigin = "anonymous"; currentAudio.playsInline = true;
         currentAudio.addEventListener('play', () => { 
-            log('Audio event: play');
             playBtn.innerHTML = '&#10074;&#10074;'; 
         });
         currentAudio.addEventListener('pause', () => { 
-            log('Audio event: pause');
             playBtn.innerHTML = '▶'; 
         });
         currentAudio.addEventListener('ended', () => { 
-            log('Audio event: ended');
             if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); else { scrubber.value = 0; } 
         });
         currentAudio.addEventListener('error', (e) => {
-            log(`Audio event: error - ${currentAudio.error ? currentAudio.error.message : 'unknown'}`);
-        });
-        currentAudio.addEventListener('stalled', () => {
-            log('Audio event: stalled');
-        });
-        currentAudio.addEventListener('suspend', () => {
-            log('Audio event: suspend');
-        });
-        currentAudio.addEventListener('waiting', () => {
-            log('Audio event: waiting');
+            console.error('Audio error:', currentAudio.error ? currentAudio.error.message : 'unknown');
         });
         currentAudio.addEventListener('timeupdate', () => { if (!isDraggingScrubber) { scrubber.value = currentAudio.currentTime; updateTimeDisplay(); } });
         currentAudio.addEventListener('loadedmetadata', () => {
-            log(`Audio event: loadedmetadata, duration=${currentAudio.duration.toFixed(2)}s`);
             scrubber.max = currentAudio.duration; updateTimeDisplay();
             if (seekOnLoadPending) {
                 let sec = parseInt(document.getElementById('testEndInput').value) || 10;
@@ -865,16 +784,12 @@
     });
 
     function initWebAudio() {
-        log('initWebAudio: Entry');
         if (audioCtx && audioCtx.state === 'closed') { 
-            log('initWebAudio: audioCtx was closed, setting to null');
             audioCtx = null; 
         }
         if (!audioCtx) {
-            log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
-            log(`initWebAudio: New context created, state=${audioCtx.state}, sampleRate=${audioCtx.sampleRate}`);
             
             stereoPath = audioCtx.createGain(); 
             monoPath = audioCtx.createGain(); monoPath.channelCount = 1; monoPath.channelCountMode = 'clamped-max'; 
@@ -924,14 +839,10 @@
             else { stereoPath.gain.value = 1; monoPath.gain.value = 0; }
             
             startAnalysisLoop();
-        } else {
-            log(`initWebAudio: Using existing context, state=${audioCtx.state}`);
         }
         if (audioCtx.state === 'suspended') {
-            log('initWebAudio: Resuming suspended context');
             audioCtx.resume();
         }
-        log(`initWebAudio: Exit, final state=${audioCtx.state}`);
     }
 
     function startAnalysisLoop() {
@@ -1361,24 +1272,19 @@
     
     // Play Button Action
     playBtn.addEventListener('click', () => {
-        log(`playBtn: Clicked, paused=${currentAudio?.paused}, hasSrc=${!!currentAudio?.src}, audioCtx.state=${audioCtx?.state || 'null'}`);
         if (isAnalysisMode) initWebAudio();
         if (audioCtx && audioCtx.state === 'suspended') { 
-            log('playBtn: Resuming suspended audioCtx');
             audioCtx.resume(); 
         }
         if(!currentAudio.src && playlistFiles.length) { 
-            log('playBtn: No src, starting playback from queue');
             playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); 
         }
         else if(currentAudio.paused) {
-            log('playBtn: Audio was paused, calling play()');
             if (isAnalysisMode) {
                 initWebAudio();
             }
             currentAudio.play();
         } else { 
-            log('playBtn: Audio was playing, calling pause()');
             currentAudio.pause(); 
         } 
     });
@@ -1404,100 +1310,7 @@
     // DONATE
     document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
 
-    // DEBUG OVERLAY HANDLERS
-    const debugOverlay = document.getElementById('debugOverlay');
-    const debugLog = document.getElementById('debugLog');
-    
-    document.getElementById('btnDebug').addEventListener('click', () => {
-        log('Debug overlay opened');
-        debugOverlay.style.display = 'flex';
-        refreshDebugStats();
-    });
-    
-    document.getElementById('btnDebugClose').addEventListener('click', () => {
-        log('Debug overlay closed');
-        debugOverlay.style.display = 'none';
-    });
-    
-    document.getElementById('btnDebugRefresh').addEventListener('click', () => {
-        log('Debug stats refreshed');
-        refreshDebugStats();
-    });
-    
-    document.getElementById('btnDebugCopy').addEventListener('click', () => {
-        const logText = debugLog.textContent;
-        navigator.clipboard.writeText(logText).then(() => {
-            showToast('Debug logs copied to clipboard!');
-            log('Debug logs copied to clipboard');
-        }).catch(err => {
-            log(`Failed to copy: ${err}`);
-            showToast('Failed to copy logs');
-        });
-    });
-    
-    function refreshDebugStats() {
-        let output = '═══════════════════════════════════════════════════════\n';
-        output += '  sandboxRADIO DEBUG DIAGNOSTICS\n';
-        output += '═══════════════════════════════════════════════════════\n\n';
-        
-        output += '--- SYSTEM INFO ---\n';
-        output += `User Agent: ${navigator.userAgent}\n`;
-        output += `Platform: ${navigator.platform}\n`;
-        output += `Timestamp: ${new Date().toISOString()}\n`;
-        output += `App Version: ${APP_VERSION}\n\n`;
-        
-        output += '--- AUDIO ENGINE STATE ---\n';
-        output += `Analysis Mode: ${isAnalysisMode ? 'ENABLED' : 'DISABLED'}\n`;
-        output += `Mono Mode: ${isMono ? 'YES' : 'NO'}\n`;
-        
-        if (currentAudio) {
-            output += `\ncurrentAudio Status:\n`;
-            output += `  - paused: ${currentAudio.paused}\n`;
-            output += `  - currentTime: ${currentAudio.currentTime.toFixed(3)}s\n`;
-            output += `  - duration: ${currentAudio.duration ? currentAudio.duration.toFixed(3) + 's' : 'N/A'}\n`;
-            output += `  - src: ${currentAudio.src ? 'SET' : 'EMPTY'}\n`;
-            output += `  - readyState: ${currentAudio.readyState}\n`;
-            output += `  - networkState: ${currentAudio.networkState}\n`;
-            output += `  - error: ${currentAudio.error ? currentAudio.error.message : 'none'}\n`;
-        } else {
-            output += `\ncurrentAudio: NULL\n`;
-        }
-        
-        if (audioCtx) {
-            output += `\naudioContext Status:\n`;
-            output += `  - state: ${audioCtx.state}\n`;
-            output += `  - sampleRate: ${audioCtx.sampleRate}Hz\n`;
-            output += `  - currentTime: ${audioCtx.currentTime.toFixed(3)}s\n`;
-            output += `  - baseLatency: ${audioCtx.baseLatency || 'N/A'}\n`;
-        } else {
-            output += `\naudioContext: NULL\n`;
-        }
-        
-        output += `\n--- PLAYLIST STATE ---\n`;
-        output += `Queue Length: ${playlistFiles.length}\n`;
-        output += `Current Track Index: ${currentTrackIndex}\n`;
-        if (currentTrackIndex >= 0 && currentTrackIndex < playlistFiles.length) {
-            output += `Current Track: ${playlistFiles[currentTrackIndex].name}\n`;
-        }
-        
-        output += '\n--- RECENT LOG ENTRIES (Last 20) ---\n';
-        const recentLogs = appLogs.slice(-20);
-        if (recentLogs.length === 0) {
-            output += '(No logs yet)\n';
-        } else {
-            recentLogs.forEach(entry => {
-                output += entry + '\n';
-            });
-        }
-        
-        output += '\n═══════════════════════════════════════════════════════\n';
-        output += 'End of Debug Report\n';
-        output += '═══════════════════════════════════════════════════════\n';
-        
-        debugLog.textContent = output;
-    }
-
-    // PAGE VISIBILITY HANDLING - v1.1.7 Clean Pause Strategy
+    // PAGE VISIBILITY HANDLING
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             log('visibilitychange: Hidden (backgrounded/screen locked)');
