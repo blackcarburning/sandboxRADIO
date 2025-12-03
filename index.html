@@ -1326,9 +1326,12 @@
             }
             // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
             if (audioCtx) {
-                audioCtx.close().then(() => { audioCtx = null; });
-                // Also set it to null immediately to be safe for synchronous checks
-                audioCtx = null;
+                // Store reference for async close, then immediately null the global
+                const ctxToClose = audioCtx;
+                audioCtx = null; // Immediately null to prevent synchronous access
+                ctxToClose.close().catch((e) => {
+                    console.error('Error closing audio context:', e);
+                });
             }
         } else {
             // App returns to foreground: Do nothing
