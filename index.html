@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.11-DEBUG</title>
+    <title>sandboxRADIO Player v1.1.12-DEBUG</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.11-DEBUG';
+    const APP_VERSION = 'v1.1.12-DEBUG';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -787,42 +787,48 @@
     function showLoading(msg) { loadingOverlay.style.display = 'flex'; loadingOverlay.textContent = msg || 'Processing...'; }
     function hideLoading() { loadingOverlay.style.display = 'none'; }
 
-    function createNewAudioPlayer() {
-        if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; currentAudio.load(); currentAudio = null; }
-        currentAudio = new Audio(); currentAudio.crossOrigin = "anonymous"; currentAudio.playsInline = true;
-        currentAudio.addEventListener('play', () => { 
+    function setupAudioEvents(audioObj) {
+        audioObj.addEventListener('play', () => { 
             log('currentAudio: play event');
             playBtn.innerHTML = '&#10074;&#10074;'; 
         });
-        currentAudio.addEventListener('pause', () => { 
+        audioObj.addEventListener('pause', () => { 
             log('currentAudio: pause event');
             playBtn.innerHTML = '▶'; 
         });
-        currentAudio.addEventListener('stalled', () => { 
+        audioObj.addEventListener('stalled', () => { 
             log('currentAudio: stalled event');
         });
-        currentAudio.addEventListener('suspend', () => { 
+        audioObj.addEventListener('suspend', () => { 
             log('currentAudio: suspend event');
         });
-        currentAudio.addEventListener('error', (e) => { 
+        audioObj.addEventListener('error', (e) => { 
             log('currentAudio: error event - ' + (e.message || 'Unknown error'));
         });
-        currentAudio.addEventListener('ended', async () => { 
+        audioObj.addEventListener('ended', async () => { 
             try {
                 if (currentTrackIndex + 1 < playlistFiles.length) await playTrack(currentTrackIndex + 1); else { scrubber.value = 0; }
             } catch(e) {
                 log('Error in ended handler: ' + String(e));
             }
         });
-        currentAudio.addEventListener('timeupdate', () => { if (!isDraggingScrubber) { scrubber.value = currentAudio.currentTime; updateTimeDisplay(); } });
-        currentAudio.addEventListener('loadedmetadata', () => {
-            scrubber.max = currentAudio.duration; updateTimeDisplay();
+        audioObj.addEventListener('timeupdate', () => { if (!isDraggingScrubber) { scrubber.value = audioObj.currentTime; updateTimeDisplay(); } });
+        audioObj.addEventListener('loadedmetadata', () => {
+            scrubber.max = audioObj.duration; updateTimeDisplay();
             if (seekOnLoadPending) {
                 let sec = parseInt(document.getElementById('testEndInput').value) || 10;
-                if(currentAudio.duration) { currentAudio.currentTime = Math.max(0, currentAudio.duration - sec); }
+                if(audioObj.duration) { audioObj.currentTime = Math.max(0, audioObj.duration - sec); }
                 seekOnLoadPending = false;
             }
         });
+    }
+
+    function createNewAudioPlayer() {
+        if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; currentAudio.load(); currentAudio = null; }
+        currentAudio = new Audio(); 
+        currentAudio.crossOrigin = "anonymous"; 
+        currentAudio.playsInline = true;
+        setupAudioEvents(currentAudio);
     }
 
     toggleAnalysisBtn.addEventListener('click', () => {
@@ -865,6 +871,22 @@
             audioCtx = null; 
         }
         if (!audioCtx) {
+            // FRESH START: Recreate HTMLAudioElement to match new AudioContext
+            if (currentAudio && currentAudio.src) {
+                log('initWebAudio: Player Swap - saving state');
+                let savedTime = currentAudio.currentTime;
+                let savedSrc = currentAudio.src;
+                
+                log('initWebAudio: Recreating HTMLAudioElement');
+                currentAudio = new Audio();
+                currentAudio.crossOrigin = "anonymous";
+                currentAudio.playsInline = true;
+                setupAudioEvents(currentAudio);
+                currentAudio.src = savedSrc;
+                currentAudio.currentTime = savedTime;
+                log('initWebAudio: Recreated HTMLAudioElement to match new AudioContext');
+            }
+            
             log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
