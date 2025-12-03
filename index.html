@@ -1297,14 +1297,16 @@
             }
         } else {
             // Foregrounded:
-            if (isAnalysisMode && !currentAudio.paused) {
+            if (isAnalysisMode && currentAudio && !currentAudio.paused) {
                 // Hard Resync to fix "Chipmunk/Fast-Forward" effect
                 // Pause immediately, then resync and resume after delay
                 currentAudio.pause();
                 setTimeout(() => {
-                    currentAudio.currentTime = currentAudio.currentTime;
-                    currentAudio.play();
-                    startAnalysisLoop();
+                    if (currentAudio) {
+                        currentAudio.currentTime = currentAudio.currentTime;
+                        currentAudio.play();
+                        startAnalysisLoop();
+                    }
                 }, 50);
             }
         }
