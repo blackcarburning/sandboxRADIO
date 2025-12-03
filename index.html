@@ -1443,7 +1443,7 @@
                     const newWindow = window.open(dataStr, '_blank');
                     
                     // Check if popup was allowed (null = blocked, or closed immediately)
-                    if (newWindow && newWindow !== null && !newWindow.closed) {
+                    if (newWindow && !newWindow.closed) {
                         log('iOS backup: window.open succeeded');
                         // Give user instructions - work for Safari, Chrome, Firefox on iOS
                         setTimeout(() => {
@@ -1462,12 +1462,17 @@
                         // Only show alert if we have reason to believe it failed
                         // Brief delay allows the browser to process the download attempt
                         setTimeout(() => {
-                            if (confirm('Did the download start?\n\nClick "Cancel" if it worked, or "OK" to use Copy to Clipboard instead.')) {
-                                navigator.clipboard.writeText(jsonStr).then(() => {
-                                    alert('Backup copied to clipboard! Paste it into a text file and save as: ' + filename);
-                                }).catch(() => {
-                                    alert('Please use the "Copy to Clipboard" button manually.');
-                                });
+                            if (!confirm('Did the download work?\n\nClick "OK" if it worked, or "Cancel" to try clipboard instead.')) {
+                                // Check if clipboard API is available (requires HTTPS or localhost)
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    navigator.clipboard.writeText(jsonStr).then(() => {
+                                        alert('Backup copied to clipboard! Paste it into a text file and save as: ' + filename);
+                                    }).catch(() => {
+                                        alert('Clipboard access failed. Please use the "Copy to Clipboard" button manually.');
+                                    });
+                                } else {
+                                    alert('Clipboard not available. Please use the "Copy to Clipboard" button manually.');
+                                }
                             }
                         }, INSTRUCTION_DELAY_MS);
                     }
