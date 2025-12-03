@@ -1467,12 +1467,14 @@
                 log('iOS backup: Using fallback anchor download');
                 try {
                     const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
+                    const url = URL.createObjectURL(blob);
+                    a.href = url;
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    URL.revokeObjectURL(a.href);
+                    // Revoke URL after a short delay to ensure download starts
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
                 } catch (error) {
                     log('iOS backup error: ' + String(error));
                     alert('iOS Download Failed. Please use "Copy to Clipboard" instead.');
@@ -1482,12 +1484,14 @@
                 log('Non-iOS device - using standard Blob download');
                 const b = new Blob([jsonStr], {type:'application/json'});
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(b);
+                const url = URL.createObjectURL(b);
+                a.href = url;
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
+                // Revoke URL after a short delay to ensure download starts
+                setTimeout(() => URL.revokeObjectURL(url), 100);
             }
             
             exportOverlay.style.display='none';
