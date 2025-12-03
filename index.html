@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.0</title>
+    <title>sandboxRADIO Player v1.1.2</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -532,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.1.0';
+    const APP_VERSION = 'v1.1.2';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
@@ -1287,8 +1287,8 @@
 
     // PAGE VISIBILITY HANDLING - Mobile Audio Stability Fix
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            // Page is backgrounded or tab switched - pause audio cleanly
+        if (document.hidden && isAnalysisMode) {
+            // Analysis mode breaks in background - pause audio cleanly when tab is hidden
             if (currentAudio && !currentAudio.paused) {
                 currentAudio.pause();
                 // Force immediate UI update for better UX (audio 'pause' event may be delayed)
@@ -1303,13 +1303,13 @@
                 cancelAnimationFrame(rafID);
                 rafID = null;
             }
-        } else {
+        } else if (!document.hidden && isAnalysisMode) {
             // Page is visible again - resume audio context if analysis mode is active
-            if (isAnalysisMode && audioCtx && audioCtx.state === 'suspended') {
+            if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume().catch(err => console.warn('Failed to resume AudioContext:', err));
             }
             // Restart analysis loop if needed (only if not already running)
-            if (isAnalysisMode && !rafID) {
+            if (!rafID) {
                 startAnalysisLoop();
             }
         }
