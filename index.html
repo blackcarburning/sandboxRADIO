@@ -444,7 +444,7 @@
     <div id="debugOverlay">
         <div class="debug-box">
             <div class="debug-header">
-                <span>🔍 DEBUG CONSOLE</span>
+                <span aria-label="Debug Console">🔍 DEBUG CONSOLE</span>
                 <span style="font-size: 0.8rem; color: #888;">sandboxRADIO Diagnostics</span>
             </div>
             <div class="debug-content">
@@ -1427,11 +1427,11 @@
     document.getElementById('btnDebugCopy').addEventListener('click', () => {
         const logText = debugLog.textContent;
         navigator.clipboard.writeText(logText).then(() => {
-            alert('Debug logs copied to clipboard!');
+            showToast('Debug logs copied to clipboard!');
             log('Debug logs copied to clipboard');
         }).catch(err => {
             log(`Failed to copy: ${err}`);
-            alert('Failed to copy logs');
+            showToast('Failed to copy logs');
         });
     });
     
