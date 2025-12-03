@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.6</title>
+    <title>sandboxRADIO Player v1.1.11-DEBUG</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -360,6 +360,39 @@
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 60px; }
 
+        /* DEBUG OVERLAY */
+        #debugOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 3000; display: none;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .debug-box {
+            background: #1a1a1a; border: 2px solid var(--accent-color); border-radius: 8px;
+            width: 90%; max-width: 800px; max-height: 80vh;
+            display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(234, 88, 12, 0.5);
+        }
+        .debug-header {
+            background: #222; padding: 12px 15px; border-bottom: 1px solid #444;
+            display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0;
+        }
+        .debug-title { color: var(--accent-color); font-weight: bold; font-size: 1.1rem; letter-spacing: 1px; }
+        .debug-controls { display: flex; gap: 8px; }
+        .debug-btn {
+            background: #333; color: #fff; border: 1px solid #555; padding: 4px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;
+            text-transform: uppercase; transition: all 0.2s;
+        }
+        .debug-btn:hover { background: #444; border-color: var(--accent-color); }
+        .debug-content {
+            padding: 15px; overflow-y: auto; flex: 1; font-family: 'Courier New', monospace;
+            font-size: 0.85rem; color: #d1d1d1; line-height: 1.6;
+        }
+        .debug-log-entry {
+            padding: 4px 0; border-bottom: 1px solid #2a2a2a; display: flex; gap: 10px;
+        }
+        .debug-timestamp { color: #888; min-width: 80px; font-size: 0.8rem; }
+        .debug-message { color: #38bdf8; flex: 1; }
+
 
 
         @media (max-width: 1000px) {
@@ -423,6 +456,7 @@
             <button class="btn btn-donate" id="btnDonate">Donate</button>
             <button class="btn btn-help" id="btnHelp" onclick="window.open('sandboxradio_help.html', '_blank')">Help</button>
             <button class="btn" id="btnGitHub" onclick="window.open('https://github.com/blackcarburning/sandboxRADIO', '_blank')">GitHub</button>
+            <button class="btn" id="btnDebug">DEBUG</button>
         </div>
     </div>
 
@@ -533,9 +567,33 @@
 
 <div id="toast">Requires Analysis Mode</div>
 
+<div id="debugOverlay">
+    <div class="debug-box">
+        <div class="debug-header">
+            <div class="debug-title">DEBUG LOG</div>
+            <div class="debug-controls">
+                <button class="debug-btn" id="btnDebugRefresh">REFRESH</button>
+                <button class="debug-btn" id="btnDebugCopy">COPY</button>
+                <button class="debug-btn" id="btnDebugClose">CLOSE</button>
+            </div>
+        </div>
+        <div class="debug-content" id="debugContent">
+            <div style="text-align: center; color: #666; padding: 20px;">No logs yet. Events will appear here.</div>
+        </div>
+    </div>
+</div>
+
 <script>
-    const APP_VERSION = 'v1.1.10';
+    const APP_VERSION = 'v1.1.11-DEBUG';
     const DB_NAME = 'RadioWavDB';
+    
+    // DEBUG LOGGING
+    let appLogs = [];
+    function log(msg) {
+        const timestamp = new Date().toLocaleTimeString();
+        appLogs.push({ time: timestamp, message: msg });
+        console.log(`[${timestamp}] ${msg}`);
+    }
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
     const STORE_LIBRARY = 'library';
@@ -733,10 +791,21 @@
         if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; currentAudio.load(); currentAudio = null; }
         currentAudio = new Audio(); currentAudio.crossOrigin = "anonymous"; currentAudio.playsInline = true;
         currentAudio.addEventListener('play', () => { 
+            log('currentAudio: play event');
             playBtn.innerHTML = '&#10074;&#10074;'; 
         });
         currentAudio.addEventListener('pause', () => { 
+            log('currentAudio: pause event');
             playBtn.innerHTML = '▶'; 
+        });
+        currentAudio.addEventListener('stalled', () => { 
+            log('currentAudio: stalled event');
+        });
+        currentAudio.addEventListener('suspend', () => { 
+            log('currentAudio: suspend event');
+        });
+        currentAudio.addEventListener('error', (e) => { 
+            log('currentAudio: error event - ' + (e.message || 'Unknown error'));
         });
         currentAudio.addEventListener('ended', () => { 
             if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); else { scrubber.value = 0; } 
@@ -784,13 +853,17 @@
         updateVolume();
     });
 
-    function initWebAudio() {
+    async function initWebAudio() {
+        log('initWebAudio: Starting initialization');
         if (audioCtx && audioCtx.state === 'closed') { 
+            log('initWebAudio: Found closed context, nullifying');
             audioCtx = null; 
         }
         if (!audioCtx) {
+            log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
+            log('initWebAudio: Created new AudioContext');
             
             stereoPath = audioCtx.createGain(); 
             monoPath = audioCtx.createGain(); monoPath.channelCount = 1; monoPath.channelCountMode = 'clamped-max'; 
@@ -840,9 +913,13 @@
             else { stereoPath.gain.value = 1; monoPath.gain.value = 0; }
             
             startAnalysisLoop();
+        } else {
+            log('initWebAudio: Reusing existing AudioContext');
         }
         if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+            log('initWebAudio: Context suspended, calling resume()');
+            await audioCtx.resume();
+            log('initWebAudio: Context resumed');
         }
     }
 
@@ -1272,17 +1349,16 @@
     document.getElementById('forwardBtn').addEventListener('click', () => currentAudio.currentTime += 5);
     
     // Play Button Action
-    playBtn.addEventListener('click', () => {
-        if (isAnalysisMode) initWebAudio();
-        if (audioCtx && audioCtx.state === 'suspended') { 
-            audioCtx.resume(); 
-        }
+    playBtn.addEventListener('click', async () => {
+        log('Play button clicked');
         if(!currentAudio.src && playlistFiles.length) { 
             playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); 
         }
         else if(currentAudio.paused) {
             if (isAnalysisMode) {
-                initWebAudio();
+                log('Initializing Audio Engine...');
+                await initWebAudio();
+                log('Audio Engine Ready. Calling play()');
             }
             currentAudio.play();
         } else { 
@@ -1310,30 +1386,73 @@
     
     // DONATE
     document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
+    
+    // DEBUG OVERLAY
+    const debugOverlay = document.getElementById('debugOverlay');
+    const debugContent = document.getElementById('debugContent');
+    
+    function refreshDebugLog() {
+        if (appLogs.length === 0) {
+            debugContent.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No logs yet. Events will appear here.</div>';
+            return;
+        }
+        debugContent.innerHTML = appLogs.map(entry => 
+            `<div class="debug-log-entry"><span class="debug-timestamp">${entry.time}</span><span class="debug-message">${entry.message}</span></div>`
+        ).join('');
+        debugContent.scrollTop = debugContent.scrollHeight;
+    }
+    
+    document.getElementById('btnDebug').addEventListener('click', () => {
+        refreshDebugLog();
+        debugOverlay.style.display = 'flex';
+    });
+    
+    document.getElementById('btnDebugClose').addEventListener('click', () => {
+        debugOverlay.style.display = 'none';
+    });
+    
+    document.getElementById('btnDebugRefresh').addEventListener('click', () => {
+        refreshDebugLog();
+    });
+    
+    document.getElementById('btnDebugCopy').addEventListener('click', () => {
+        const logText = appLogs.map(entry => `[${entry.time}] ${entry.message}`).join('\n');
+        navigator.clipboard.writeText(logText).then(() => {
+            showToast('Debug logs copied to clipboard!');
+        }).catch(err => {
+            showToast('Failed to copy logs');
+            console.error('Copy failed:', err);
+        });
+    });
 
-    // PAGE VISIBILITY HANDLING - v1.1.10 Nuclear Audio Reset
+    // PAGE VISIBILITY HANDLING - v1.1.11 Nuclear Audio Reset
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
+            log('Visibility: Document hidden');
             // App is backgrounded/screen locked: Stop audio immediately
             if (currentAudio && !currentAudio.paused) {
+                log('Pausing currentAudio');
                 currentAudio.pause();
                 playBtn.innerHTML = '▶';
             }
             // Always stop visualizer loop
             if (rafID) {
+                log('Stopping animation frame');
                 cancelAnimationFrame(rafID);
                 rafID = null;
             }
             // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
             if (audioCtx) {
+                log('Pausing and destroying AudioContext');
                 // Store reference for async close, then immediately null the global
                 const ctxToClose = audioCtx;
                 audioCtx = null; // Immediately null to prevent synchronous access
                 ctxToClose.close().catch((e) => {
-                    console.error('Error closing audio context:', e);
+                    log('Error closing audio context: ' + e.message);
                 });
             }
         } else {
+            log('Visibility: Document visible');
             // App returns to foreground: Do nothing
             // User must press Play button manually to resume
         }
