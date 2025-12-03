@@ -1291,13 +1291,14 @@
             // Page is backgrounded or tab switched - pause audio cleanly
             if (currentAudio && !currentAudio.paused) {
                 currentAudio.pause();
-                playBtn.innerHTML = '▶'; // Update UI to show paused state
+                // Force immediate UI update for better UX (audio 'pause' event may be delayed)
+                playBtn.innerHTML = '▶';
             }
             // Suspend audio context to save resources and prevent glitches
             if (audioCtx && audioCtx.state === 'running') {
                 audioCtx.suspend();
             }
-            // Stop analysis loop to prevent stuttering
+            // Stop analysis loop to prevent stuttering and save battery
             if (rafID) {
                 cancelAnimationFrame(rafID);
                 rafID = null;
@@ -1307,7 +1308,7 @@
             if (isAnalysisMode && audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
-            // Restart analysis loop if needed
+            // Restart analysis loop if needed (only if not already running)
             if (isAnalysisMode && !rafID) {
                 startAnalysisLoop();
             }
