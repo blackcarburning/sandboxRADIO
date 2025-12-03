@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.4</title>
+    <title>sandboxRADIO Player v1.1.5</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -532,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.1.4';
+    const APP_VERSION = 'v1.1.5';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
@@ -1286,19 +1286,27 @@
     // DONATE
     document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
 
-    // PAGE VISIBILITY HANDLING - v1.1.4 (Light Touch)
+    // PAGE VISIBILITY HANDLING - v1.1.5 Speed Glitch Fix
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-            // When backgrounded, ONLY stop the visualizer to prevent CPU glitches.
-            // WE DO NOT PAUSE AUDIO. It must keep playing.
+            // Backgrounded: Stop visualizer to save CPU/Battery.
+            // Audio continues playing (Standard & Analysis modes).
             if (rafID) {
                 cancelAnimationFrame(rafID);
                 rafID = null;
             }
         } else {
-            // When foregrounded, restart visualizer if needed
-            if (isAnalysisMode && currentAudio && !currentAudio.paused && !rafID) {
-                startAnalysisLoop();
+            // Foregrounded:
+            if (isAnalysisMode && currentAudio && !currentAudio.paused) {
+                // 1. Restart visualizer if needed
+                if (!rafID) startAnalysisLoop();
+                
+                // 2. Fix "Chipmunk/Fast-Forward" effect
+                // The Web Audio clock drifts from the System clock when backgrounded.
+                // Setting currentTime to itself forces the browser to flush the 
+                // desynced/queued buffer and realign the clocks immediately.
+                const syncTime = currentAudio.currentTime;
+                currentAudio.currentTime = syncTime;
             }
         }
     });
