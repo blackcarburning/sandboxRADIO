@@ -1285,6 +1285,35 @@
     // DONATE
     document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
 
+    // PAGE VISIBILITY HANDLING - Mobile Audio Stability Fix
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // Page is backgrounded or tab switched - pause audio cleanly
+            if (currentAudio && !currentAudio.paused) {
+                currentAudio.pause();
+                playBtn.innerHTML = '▶'; // Update UI to show paused state
+            }
+            // Suspend audio context to save resources and prevent glitches
+            if (audioCtx && audioCtx.state === 'running') {
+                audioCtx.suspend();
+            }
+            // Stop analysis loop to prevent stuttering
+            if (rafID) {
+                cancelAnimationFrame(rafID);
+                rafID = null;
+            }
+        } else {
+            // Page is visible again - resume audio context if analysis mode is active
+            if (isAnalysisMode && audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // Restart analysis loop if needed
+            if (isAnalysisMode && !rafID) {
+                startAnalysisLoop();
+            }
+        }
+    });
+
     // INIT
     window.addEventListener('load', () => {
         initDB();
