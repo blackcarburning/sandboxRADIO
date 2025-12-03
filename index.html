@@ -1304,7 +1304,7 @@
                 setTimeout(() => {
                     if (currentAudio) {
                         currentAudio.currentTime = currentAudio.currentTime;
-                        currentAudio.play();
+                        currentAudio.play().catch(err => console.error('Hard resync play failed:', err));
                         startAnalysisLoop();
                     }
                 }, 50);
