@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.2</title>
+    <title>sandboxRADIO Player v1.1.3</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -532,7 +532,7 @@
 <div id="toast">Requires Analysis Mode</div>
 
 <script>
-    const APP_VERSION = 'v1.1.2';
+    const APP_VERSION = 'v1.1.3';
     const DB_NAME = 'RadioWavDB';
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
@@ -775,6 +775,7 @@
     });
 
     function initWebAudio() {
+        if (audioCtx && audioCtx.state === 'closed') { audioCtx = null; }
         if (!audioCtx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
@@ -1287,31 +1288,18 @@
 
     // PAGE VISIBILITY HANDLING - Mobile Audio Stability Fix
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden && isAnalysisMode) {
-            // Analysis mode breaks in background - pause audio cleanly when tab is hidden
+        if (!isAnalysisMode) return;
+        
+        if (document.hidden) {
+            // Pause audio when backgrounded
             if (currentAudio && !currentAudio.paused) {
                 currentAudio.pause();
-                // Force immediate UI update for better UX (audio 'pause' event may be delayed)
-                playBtn.innerHTML = '▶';
             }
-            // Suspend audio context to save resources and prevent glitches
-            if (audioCtx && audioCtx.state === 'running') {
-                audioCtx.suspend().catch(err => console.warn('Failed to suspend AudioContext:', err));
-            }
-            // Stop analysis loop to prevent stuttering and save battery
-            if (rafID) {
-                cancelAnimationFrame(rafID);
-                rafID = null;
-            }
-        } else if (!document.hidden && isAnalysisMode) {
-            // Page is visible again - resume audio context if analysis mode is active
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(err => console.warn('Failed to resume AudioContext:', err));
-            }
-            // Restart analysis loop if needed (only if not already running)
-            if (!rafID) {
-                startAnalysisLoop();
-            }
+            // Reset Play button to play symbol
+            playBtn.innerHTML = '▶';
+            // Stop analysis loop
+            stopAnalysisLoop();
+            // DO NOT suspend audioCtx - let browser manage it to avoid iOS stuck state
         }
     });
 
