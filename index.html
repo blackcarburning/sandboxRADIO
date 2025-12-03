@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.13-DEBUG';
+    const APP_VERSION = 'v1.1.14-DEBUG';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -1460,31 +1460,38 @@
         });
     });
 
-    // PAGE VISIBILITY HANDLING - v1.1.11 Nuclear Audio Reset
+    // PAGE VISIBILITY HANDLING - v1.1.14 Conditional Background Handling
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             log('Visibility: Document hidden');
-            // App is backgrounded/screen locked: Stop audio immediately
-            if (currentAudio && !currentAudio.paused) {
-                log('Pausing currentAudio');
-                currentAudio.pause();
-                playBtn.innerHTML = '▶';
-            }
-            // Always stop visualizer loop
-            if (rafID) {
-                log('Stopping animation frame');
-                cancelAnimationFrame(rafID);
-                rafID = null;
-            }
-            // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
-            if (audioCtx) {
-                log('Pausing and destroying AudioContext');
-                // Store reference for async close, then immediately null the global
-                const ctxToClose = audioCtx;
-                audioCtx = null; // Immediately null to prevent synchronous access
-                ctxToClose.close().catch((e) => {
-                    log('Error closing audio context: ' + String(e));
-                });
+            // Only stop audio/destroy context if in Analysis Mode
+            // In Normal Mode, allow native background audio playback to continue
+            if (isAnalysisMode) {
+                log('Analysis Mode active - stopping audio and destroying context');
+                // App is backgrounded/screen locked: Stop audio immediately
+                if (currentAudio && !currentAudio.paused) {
+                    log('Pausing currentAudio');
+                    currentAudio.pause();
+                    playBtn.innerHTML = '▶';
+                }
+                // Always stop visualizer loop
+                if (rafID) {
+                    log('Stopping animation frame');
+                    cancelAnimationFrame(rafID);
+                    rafID = null;
+                }
+                // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
+                if (audioCtx) {
+                    log('Pausing and destroying AudioContext');
+                    // Store reference for async close, then immediately null the global
+                    const ctxToClose = audioCtx;
+                    audioCtx = null; // Immediately null to prevent synchronous access
+                    ctxToClose.close().catch((e) => {
+                        log('Error closing audio context: ' + String(e));
+                    });
+                }
+            } else {
+                log('Normal Mode active - allowing background audio playback to continue');
             }
         } else {
             log('Visibility: Document visible');
