@@ -1296,7 +1296,7 @@
             }
             // Suspend audio context to save resources and prevent glitches
             if (audioCtx && audioCtx.state === 'running') {
-                audioCtx.suspend();
+                audioCtx.suspend().catch(err => console.warn('Failed to suspend AudioContext:', err));
             }
             // Stop analysis loop to prevent stuttering and save battery
             if (rafID) {
@@ -1306,7 +1306,7 @@
         } else {
             // Page is visible again - resume audio context if analysis mode is active
             if (isAnalysisMode && audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                audioCtx.resume().catch(err => console.warn('Failed to resume AudioContext:', err));
             }
             // Restart analysis loop if needed (only if not already running)
             if (isAnalysisMode && !rafID) {
