@@ -133,7 +133,7 @@
 
     <div class="header">
         <div class="logo">sandbox<span>RADIO</span></div>
-        <div class="version-tag">Manual v1.1.0</div>
+        <div class="version-tag">Manual v1.1.1</div>
     </div>
 
     <div class="container">
@@ -255,7 +255,7 @@
                 <strong>Note:</strong> On iOS devices, enabling Analysis Mode will show a confirmation dialog and enable the volume slider.
             </div>
             <div class="alert">
-                <strong>Note:</strong> Meters are POST-FADER. Adjusting the Volume slider will affect the LUFS and Peak readings.
+                <strong>⚠️ Important:</strong> Meters are POST-FADER. Adjusting the Volume slider will affect the LUFS and Peak readings. This design allows you to use the Volume Slider as a gain trim tool for simulation and A/B testing.
             </div>
 
             <div class="grid-2">
@@ -287,6 +287,64 @@
                 <li><strong>Vector:</strong> Stereo width visualizer (Goniometer) with correlation meter.</li>
                 <li><strong>Waterfall:</strong> Spectrogram heatmap showing frequency content over time.</li>
             </ul>
+
+            <h3>Post-Fader Metering & A/B Testing</h3>
+            <p>One of the most powerful features of sandboxRADIO is the ability to <strong>simulate normalization</strong> without permanently altering your audio files. Because the meters are <strong>post-fader</strong>, the Volume Slider acts as a <strong>gain trim control</strong> that affects all meter readings in real-time.</p>
+            
+            <p><strong>Typical Workflow:</strong></p>
+            <ol>
+                <li>Load your master into sandboxRADIO and enable <span class="button-ref">Analysis: ON</span>.</li>
+                <li>Play the track at 100% volume and observe the <strong>LUFS (I)</strong> reading.</li>
+                <li>Lower the Volume Slider until the Integrated LUFS matches your target platform (e.g., -14 LUFS for Spotify).</li>
+                <li>Check if the <strong>MAX</strong> peak meter exceeds -1.0 dBTP (True Peak limit).</li>
+                <li>If your mix still clips at -14 LUFS, you may need to apply limiting or reduce the master level in your DAW.</li>
+            </ol>
+
+            <p>This allows you to <strong>A/B test</strong> how your mix will sound after streaming service normalization <em>before</em> you commit to re-rendering or applying additional processing.</p>
+
+            <h3>2025 Streaming Service Targets</h3>
+            <p>Use the table below as a reference when testing your masters. Most services normalize to these integrated loudness targets:</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: rgba(255,255,255,0.05);">
+                <thead>
+                    <tr style="background: var(--header-bg); border-bottom: 2px solid var(--accent);">
+                        <th style="padding: 12px; text-align: left; color: #fff; border: 1px solid var(--border);">Platform</th>
+                        <th style="padding: 12px; text-align: center; color: #fff; border: 1px solid var(--border);">Target LUFS (I)</th>
+                        <th style="padding: 12px; text-align: center; color: #fff; border: 1px solid var(--border);">True Peak Limit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid var(--border);">Spotify</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border); color: var(--accent); font-weight: bold;">-14 LUFS</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border);">-1.0 dBTP</td>
+                    </tr>
+                    <tr style="background: rgba(255,255,255,0.02);">
+                        <td style="padding: 10px; border: 1px solid var(--border);">Apple Music</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border); color: var(--accent); font-weight: bold;">-16 LUFS</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border);">-1.0 dBTP</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid var(--border);">YouTube</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border); color: var(--accent); font-weight: bold;">-14 LUFS</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border);">-1.0 dBTP</td>
+                    </tr>
+                    <tr style="background: rgba(255,255,255,0.02);">
+                        <td style="padding: 10px; border: 1px solid var(--border);">Tidal</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border); color: var(--accent); font-weight: bold;">-14 LUFS</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border);">-1.0 dBTP</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid var(--border);">Amazon Music</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border); color: var(--accent); font-weight: bold;">-14 LUFS</td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid var(--border);">-1.0 dBTP</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="alert">
+                <strong>Pro Tip:</strong> If your master hits -10 LUFS and you lower the volume to simulate -14 LUFS normalization, you're applying -4 dB of gain reduction. This is exactly what the streaming service will do automatically. Use this to check if your mix still sounds balanced and competitive at the target level.
+            </div>
         </div>
 
         <div class="section">
