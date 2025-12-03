@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.17</title>
+    <title>sandboxRADIO Player v1.1.18</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.17';
+    const APP_VERSION = 'v1.1.18';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -1425,7 +1425,77 @@
         exportOverlay.style.display='flex'; const active = playlistFiles.map(p=>p.name);
         db.transaction([STORE_PRESETS],'readonly').objectStore(STORE_PRESETS).getAll().onsuccess=(e)=>{ pendingExportData={type:'sandboxRADIO_backup', date:new Date(), activeQueue:active, presets:e.target.result}; exportFilename.value=`sandboxRADIO_Backup_${new Date().toISOString().slice(0,10)}`; };
     });
-    document.getElementById('btnActionSave').addEventListener('click', ()=>{ if(pendingExportData) { const b=new Blob([JSON.stringify(pendingExportData)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=exportFilename.value+'.json'; a.click(); exportOverlay.style.display='none'; } });
+    document.getElementById('btnActionSave').addEventListener('click', ()=>{ 
+        if(pendingExportData) { 
+            const jsonStr = JSON.stringify(pendingExportData);
+            const filename = exportFilename.value + '.json';
+            // Delay for showing user instructions after popup (allows time for popup to render)
+            const INSTRUCTION_DELAY_MS = 500;
+            
+            // iOS Safari-specific handling
+            if (isIOS) {
+                log('iOS detected - using window.open() for download');
+                try {
+                    // Create data URI - iOS Safari handles this better than Blob URLs
+                    const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonStr);
+                    
+                    // Try window.open first (most reliable on iOS)
+                    const newWindow = window.open(dataStr, '_blank');
+                    
+                    // Check if popup was allowed (null = blocked, or closed immediately)
+                    if (newWindow && !newWindow.closed) {
+                        log('iOS backup: window.open succeeded');
+                        // Give user instructions - work for Safari, Chrome, Firefox on iOS
+                        setTimeout(() => {
+                            alert('To save the backup:\n\n1. In the new tab, tap and hold the content\n2. Select "Select All" from the menu\n3. Tap "Share" or "Copy"\n4. Choose "Save to Files" and name it: ' + filename);
+                        }, INSTRUCTION_DELAY_MS);
+                    } else {
+                        log('iOS backup: window.open blocked or unavailable, trying alternative');
+                        // Fallback: create an anchor with data URI and try clicking
+                        const a = document.createElement('a');
+                        a.href = dataStr;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        
+                        // Only show alert if we have reason to believe it failed
+                        // Brief delay allows the browser to process the download attempt
+                        setTimeout(() => {
+                            if (!confirm('Did the download work?\n\nClick "OK" if it worked, or "Cancel" to try clipboard instead.')) {
+                                // Check if clipboard API is available (requires HTTPS or localhost)
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    navigator.clipboard.writeText(jsonStr).then(() => {
+                                        alert('Backup copied to clipboard! Paste it into a text file and save as: ' + filename);
+                                    }).catch(() => {
+                                        alert('Clipboard access failed. Please use the "Copy to Clipboard" button manually.');
+                                    });
+                                } else {
+                                    alert('Clipboard not available. Please use the "Copy to Clipboard" button manually.');
+                                }
+                            }
+                        }, INSTRUCTION_DELAY_MS);
+                    }
+                } catch (error) {
+                    log('iOS backup error: ' + String(error));
+                    alert('iOS Download Failed. Please use "Copy to Clipboard" instead.');
+                }
+            } else {
+                // Standard desktop/Android approach with Blob
+                log('Non-iOS device - using standard Blob download');
+                const b = new Blob([jsonStr], {type:'application/json'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(b);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }
+            
+            exportOverlay.style.display='none';
+        } 
+    });
     document.getElementById('btnActionCancel').addEventListener('click', ()=>exportOverlay.style.display='none');
     document.getElementById('btnActionCopy').addEventListener('click', ()=>{ if(pendingExportData) { navigator.clipboard.writeText(JSON.stringify(pendingExportData)); alert("Copied!"); exportOverlay.style.display='none'; } });
     
