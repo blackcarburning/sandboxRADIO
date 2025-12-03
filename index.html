@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.15';
+    const APP_VERSION = 'v1.1.16';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -897,6 +897,16 @@
             log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
+            // KICKSTART: Briefly play silence to force the hardware to wake up
+            try {
+                const warmUp = audioCtx.createBufferSource();
+                warmUp.buffer = audioCtx.createBuffer(1, 1, 22050); // 22050Hz = half of standard 44.1kHz
+                warmUp.connect(audioCtx.destination);
+                warmUp.onended = () => warmUp.disconnect(); // Clean up after playback
+                warmUp.start(0);
+            } catch(e) {
+                log('Warm-up buffer failed: ' + String(e));
+            }
             log('initWebAudio: Created new AudioContext');
             
             stereoPath = audioCtx.createGain(); 
