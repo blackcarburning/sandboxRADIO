@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.12-DEBUG';
+    const APP_VERSION = 'v1.1.13-DEBUG';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -903,6 +903,7 @@
             monoPath = audioCtx.createGain(); monoPath.channelCount = 1; monoPath.channelCountMode = 'clamped-max'; 
             preMaster = audioCtx.createGain(); preMaster.channelCount = 2; preMaster.channelCountMode = 'explicit'; 
             masterGain = audioCtx.createGain();
+            masterGain.gain.value = volumeSlider.value;
             
             mediaSource = audioCtx.createMediaElementSource(currentAudio);
             mediaSource.connect(stereoPath); mediaSource.connect(monoPath);
