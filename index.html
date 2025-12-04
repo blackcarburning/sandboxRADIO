@@ -1378,18 +1378,21 @@
             
             // Gather data from all stores
             const libraryPromise = new Promise((resolve, reject) => {
-                db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onsuccess = (e) => resolve(e.target.result);
-                db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onerror = reject;
+                const request = db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
             });
             
             const playlistPromise = new Promise((resolve, reject) => {
-                db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => resolve(e.target.result);
-                db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onerror = reject;
+                const request = db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
             });
             
             const presetsPromise = new Promise((resolve, reject) => {
-                db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onsuccess = (e) => resolve(e.target.result);
-                db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onerror = reject;
+                const request = db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
             });
             
             const [libraryData, playlistData, presetsData] = await Promise.all([libraryPromise, playlistPromise, presetsPromise]);
@@ -1555,7 +1558,7 @@
                     const store = tx.objectStore(STORE_PLAYLIST);
                     
                     data.playlist.forEach(item => {
-                        store.put({ name: item.name });
+                        store.add({ name: item.name });
                     });
                     
                     tx.oncomplete = () => resolve();
