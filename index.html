@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>sandboxRADIO Player v1.1.18</title>
+    <title>sandboxRADIO Player v1.1.20</title>
     <style>
         :root {
             --chassis-bg: #2b2b2b;
@@ -584,7 +584,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.19';
+    const APP_VERSION = 'v1.1.20';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -1249,7 +1249,11 @@
         trackTitleDisplay.textContent = trackName;
         db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).get(trackName).onsuccess = (e) => {
             const result = e.target.result;
-            if(result && result.blob) {
+            if(result && result._isOffline) {
+                showToast('Track is offline - audio file not available');
+                log('Cannot play offline track: ' + trackName);
+                if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1);
+            } else if(result && result.blob) {
                 if (currentAudio.src) URL.revokeObjectURL(currentAudio.src);
                 currentAudio.src = URL.createObjectURL(result.blob);
                 currentAudio.load(); updateVolume();
@@ -1283,7 +1287,9 @@
             files.sort((a,b) => a.name.localeCompare(b.name));
             files.forEach(rec => {
                 const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
-                el.innerHTML = `<span class="trunc-text" title="${rec.name}">${rec.name}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
+                const offlineIndicator = rec._isOffline ? ' <span style="color:#ea580c;font-size:0.75em;">[OFFLINE]</span>' : '';
+                el.innerHTML = `<span class="trunc-text" title="${rec.name}">${rec.name}${offlineIndicator}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
+                if (rec._isOffline) el.style.opacity = '0.6';
                 el.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('type', 'library'); ev.dataTransfer.setData('name', rec.name); });
                 el.querySelector('.add-btn').addEventListener('click', () => addToPlaylistDB(rec.name));
                 el.querySelector('.remove-btn').addEventListener('click', (ev) => { ev.stopPropagation(); const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).delete(rec.name); tx.oncomplete=loadLibraryFromDB; });
@@ -1356,6 +1362,236 @@
             });
         };
     }
+
+    // NEW BACKUP FUNCTION - Clean metadata export
+    async function performBackup() {
+        try {
+            log('Starting backup...');
+            
+            // Gather data from all stores
+            const libraryPromise = new Promise((resolve, reject) => {
+                db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onsuccess = (e) => resolve(e.target.result);
+                db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onerror = reject;
+            });
+            
+            const playlistPromise = new Promise((resolve, reject) => {
+                db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => resolve(e.target.result);
+                db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onerror = reject;
+            });
+            
+            const presetsPromise = new Promise((resolve, reject) => {
+                db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onsuccess = (e) => resolve(e.target.result);
+                db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onerror = reject;
+            });
+            
+            const [libraryData, playlistData, presetsData] = await Promise.all([libraryPromise, playlistPromise, presetsPromise]);
+            
+            // Sanitize library/playlist data - extract only metadata (no File blobs)
+            const sanitizedLibrary = libraryData.map(item => {
+                const sanitized = { name: item.name };
+                // Add metadata if available from the File blob
+                if (item.blob) {
+                    if (item.blob.size) sanitized.size = item.blob.size;
+                    if (item.blob.type) sanitized.type = item.blob.type;
+                    if (item.blob.lastModified) sanitized.lastModified = item.blob.lastModified;
+                }
+                return sanitized;
+            });
+            
+            const sanitizedPlaylist = playlistData.map(item => {
+                return { name: item.name };
+            });
+            
+            // Create clean backup object
+            const backupData = {
+                version: APP_VERSION,
+                exportDate: new Date().toISOString(),
+                library: sanitizedLibrary,
+                playlist: sanitizedPlaylist,
+                presets: presetsData
+            };
+            
+            // Format as human-readable JSON
+            const jsonStr = JSON.stringify(backupData, null, 2);
+            const filename = 'sandboxRADIO_Config.json';
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            
+            log('Backup data prepared. Size: ' + jsonStr.length + ' bytes');
+            
+            // iOS Handling with Web Share API
+            if (isIOS) {
+                log('iOS detected - checking for Web Share API support');
+                
+                if (navigator.canShare && navigator.share) {
+                    try {
+                        const file = new File([blob], filename, { type: 'application/json' });
+                        
+                        if (navigator.canShare({ files: [file] })) {
+                            log('Using Web Share API for iOS backup');
+                            await navigator.share({ files: [file] });
+                            log('Web Share API succeeded');
+                            showToast('Backup saved!');
+                            return;
+                        } else {
+                            log('Web Share API cannot share files, using fallback');
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            log('Web Share API error: ' + String(error));
+                        } else {
+                            log('User cancelled share');
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: Standard blob download for desktop/Android
+            log('Using standard download method');
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            showToast('Backup downloaded!');
+            
+        } catch (error) {
+            log('Backup error: ' + String(error));
+            alert('Backup failed: ' + error.message);
+        }
+    }
+    
+    // NEW RESTORE FUNCTION - Reliable import
+    async function handleRestore(file) {
+        try {
+            log('Starting restore from file: ' + file.name);
+            
+            const reader = new FileReader();
+            const fileContent = await new Promise((resolve, reject) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+            
+            const data = JSON.parse(fileContent);
+            log('Restore data parsed successfully');
+            
+            // Validate structure
+            if (!data.library || !data.playlist || !data.presets) {
+                throw new Error('Invalid backup file format. Missing required keys.');
+            }
+            
+            if (!confirm('Restore configuration? This will replace your current library, playlist, and presets.')) {
+                log('Restore cancelled by user');
+                return;
+            }
+            
+            showLoading('Restoring...');
+            
+            // Clear existing stores
+            const clearLibrary = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+                tx.objectStore(STORE_LIBRARY).clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear library'));
+            });
+            
+            const clearPlaylist = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
+                tx.objectStore(STORE_PLAYLIST).clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear playlist'));
+            });
+            
+            const clearPresets = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_PRESETS], 'readwrite');
+                tx.objectStore(STORE_PRESETS).clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear presets'));
+            });
+            
+            await Promise.all([clearLibrary, clearPlaylist, clearPresets]);
+            log('Existing data cleared');
+            
+            // Restore library (metadata only, marked as offline)
+            if (data.library && data.library.length > 0) {
+                const restoreLibrary = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+                    const store = tx.objectStore(STORE_LIBRARY);
+                    
+                    data.library.forEach(item => {
+                        // Mark items as offline (metadata only, no audio blob)
+                        store.put({
+                            name: item.name,
+                            size: item.size,
+                            type: item.type,
+                            lastModified: item.lastModified,
+                            _isOffline: true
+                        });
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore library'));
+                });
+                
+                await restoreLibrary;
+                log('Library restored: ' + data.library.length + ' items');
+            }
+            
+            // Restore playlist
+            if (data.playlist && data.playlist.length > 0) {
+                const restorePlaylist = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
+                    const store = tx.objectStore(STORE_PLAYLIST);
+                    
+                    data.playlist.forEach(item => {
+                        store.add({ name: item.name });
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore playlist'));
+                });
+                
+                await restorePlaylist;
+                log('Playlist restored: ' + data.playlist.length + ' items');
+            }
+            
+            // Restore presets
+            if (data.presets && data.presets.length > 0) {
+                const restorePresets = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_PRESETS], 'readwrite');
+                    const store = tx.objectStore(STORE_PRESETS);
+                    
+                    data.presets.forEach(preset => {
+                        store.put(preset);
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore presets'));
+                });
+                
+                await restorePresets;
+                log('Presets restored: ' + data.presets.length + ' items');
+            }
+            
+            // Reload UI to show restored data
+            hideLoading();
+            loadLibraryFromDB();
+            loadPlaylistFromDB();
+            loadPresetsFromDB();
+            
+            showToast('Restore complete! Note: Audio files are not included - only metadata.');
+            log('Restore completed successfully');
+            
+        } catch (error) {
+            hideLoading();
+            log('Restore error: ' + String(error));
+            alert('Restore failed: ' + error.message);
+        }
+    }
+
     function setLibraryState(minimized) {
         if (minimized) { mainDashboard.classList.add('minimized'); libraryPanel.classList.add('collapsed'); toggleLibBtn.textContent = '[+]'; } 
         else { mainDashboard.classList.remove('minimized'); libraryPanel.classList.remove('collapsed'); toggleLibBtn.textContent = '[-]'; }
@@ -1417,13 +1653,12 @@
     document.getElementById('btnLoadFiles').addEventListener('click', () => { const i = document.getElementById('fileInput'); i.value = ''; i.click(); });
     document.getElementById('fileInput').addEventListener('change', (e) => saveToLibraryDB(e.target.files));
     document.getElementById('btnImport').addEventListener('click', () => { const i = document.getElementById('importInput'); i.value = ''; i.click(); });
-    document.getElementById('importInput').addEventListener('change', (e) => { if(e.target.files[0]) { const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); if(confirm("Restore?")) { const tx=db.transaction([STORE_PRESETS],'readwrite'); tx.objectStore(STORE_PRESETS).clear(); d.presets.forEach(p=>tx.objectStore(STORE_PRESETS).put(p)); setTimeout(loadPresetsFromDB,500); } } catch(e){alert("Err");} }; r.readAsText(e.target.files[0]); }});
+    document.getElementById('importInput').addEventListener('change', (e) => { if(e.target.files[0]) { handleRestore(e.target.files[0]); } });
     document.getElementById('clearLibraryBtn').addEventListener('click', () => { if(confirm("Eject All?")) { const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).clear(); tx.oncomplete=loadLibraryFromDB; } });
     document.getElementById('clearPlaylistBtn').addEventListener('click', () => { if(confirm("Clear Queue?")) { const tx=db.transaction([STORE_PLAYLIST],'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; } });
     document.getElementById('savePresetBtn').addEventListener('click', () => { if(playlistFiles.length===0)return alert("Empty"); const n=prompt("Name:"); if(n) { const tx=db.transaction([STORE_PRESETS],'readwrite'); tx.objectStore(STORE_PRESETS).put({name:n, tracks:playlistFiles.map(p=>p.name)}); tx.oncomplete=loadPresetsFromDB; } });
     document.getElementById('exportBtn').addEventListener('click', () => {
-        exportOverlay.style.display='flex'; const active = playlistFiles.map(p=>p.name);
-        db.transaction([STORE_PRESETS],'readonly').objectStore(STORE_PRESETS).getAll().onsuccess=(e)=>{ pendingExportData={type:'sandboxRADIO_backup', date:new Date(), activeQueue:active, presets:e.target.result}; exportFilename.value=`sandboxRADIO_Backup_${new Date().toISOString().slice(0,10)}`; };
+        performBackup();
     });
     document.getElementById('btnActionSave').addEventListener('click', ()=>{ 
         if(pendingExportData) { 
