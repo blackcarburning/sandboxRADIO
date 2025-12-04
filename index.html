@@ -594,6 +594,13 @@
         appLogs.push({ time: timestamp, message: msg });
         console.log(`[${timestamp}] ${msg}`);
     }
+    
+    // HTML escape function to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
     const DB_VERSION = 7;
     const STORE_PLAYLIST = 'playlist';
     const STORE_LIBRARY = 'library';
@@ -1288,7 +1295,8 @@
             files.forEach(rec => {
                 const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
                 const offlineIndicator = rec._isOffline ? ' <span style="color:#ea580c;font-size:0.75em;">[OFFLINE]</span>' : '';
-                el.innerHTML = `<span class="trunc-text" title="${rec.name}">${rec.name}${offlineIndicator}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
+                const escapedName = escapeHtml(rec.name);
+                el.innerHTML = `<span class="trunc-text" title="${escapedName}">${escapedName}${offlineIndicator}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
                 if (rec._isOffline) el.style.opacity = '0.6';
                 el.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('type', 'library'); ev.dataTransfer.setData('name', rec.name); });
                 el.querySelector('.add-btn').addEventListener('click', () => addToPlaylistDB(rec.name));
@@ -1310,7 +1318,7 @@
                 const dv = index === playlistFiles.length - 1 ? 'visibility:hidden' : '';
                 moveButtons = `<span class="icon-btn move-btn" style="${uv}">▲</span><span class="icon-btn move-btn" style="${dv}">▼</span>`;
             }
-            el.innerHTML = `<span class="trunc-text">${index+1}. ${track.name}</span><div class="icon-group">${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
+            el.innerHTML = `<span class="trunc-text">${index+1}. ${escapeHtml(track.name)}</span><div class="icon-group">${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
             el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('type', 'playlist-sort'); e.dataTransfer.setData('index', index); });
             el.addEventListener('dragover', (e) => e.preventDefault());
             el.addEventListener('drop', (e) => {
@@ -1353,7 +1361,7 @@
             presetList.innerHTML = '';
             e.target.result.forEach(p => {
                 const el = document.createElement('div'); el.className = 'preset-item';
-                el.innerHTML = `<span class="trunc-text">${p.name} (${p.tracks.length})</span> <span class="icon-btn remove-btn">×</span>`;
+                el.innerHTML = `<span class="trunc-text">${escapeHtml(p.name)} (${p.tracks.length})</span> <span class="icon-btn remove-btn">×</span>`;
                 addTouchGuardedClick(el, () => { 
                     if(confirm("Load Preset?")) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); p.tracks.forEach(n => tx.objectStore(STORE_PLAYLIST).add({ name: n })); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; }
                 });
@@ -1391,9 +1399,9 @@
                 const sanitized = { name: item.name };
                 // Add metadata if available from the File blob
                 if (item.blob) {
-                    if (item.blob.size) sanitized.size = item.blob.size;
-                    if (item.blob.type) sanitized.type = item.blob.type;
-                    if (item.blob.lastModified) sanitized.lastModified = item.blob.lastModified;
+                    if (item.blob.size !== undefined) sanitized.size = item.blob.size;
+                    if (item.blob.type !== undefined) sanitized.type = item.blob.type;
+                    if (item.blob.lastModified !== undefined) sanitized.lastModified = item.blob.lastModified;
                 }
                 return sanitized;
             });
@@ -1547,7 +1555,7 @@
                     const store = tx.objectStore(STORE_PLAYLIST);
                     
                     data.playlist.forEach(item => {
-                        store.add({ name: item.name });
+                        store.put({ name: item.name });
                     });
                     
                     tx.oncomplete = () => resolve();
