@@ -1259,7 +1259,7 @@
             if(result && result._isOffline) {
                 showToast('Track is offline - audio file not available');
                 log('Cannot play offline track: ' + trackName);
-                if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1);
+                if (playlistFiles && currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1);
             } else if(result && result.blob) {
                 if (currentAudio.src) URL.revokeObjectURL(currentAudio.src);
                 currentAudio.src = URL.createObjectURL(result.blob);
@@ -1534,11 +1534,12 @@
                     
                     data.library.forEach(item => {
                         // Mark items as offline (metadata only, no audio blob)
+                        // Provide default values for missing metadata
                         store.put({
                             name: item.name,
-                            size: item.size,
-                            type: item.type,
-                            lastModified: item.lastModified,
+                            size: item.size || 0,
+                            type: item.type || 'audio/unknown',
+                            lastModified: item.lastModified || Date.now(),
                             _isOffline: true
                         });
                     });
