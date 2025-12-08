@@ -613,10 +613,19 @@
 
 
 
+    // Constants
+    const DEFAULT_GAP_SECONDS = 2.0;
+    const MAX_GAP_SECONDS = 60;
+    
     let db, playlistFiles = [], currentTrackIndex = -1, isDraggingScrubber = false;
     let testEndTime = 10;
     let pendingExportData = null; 
     let seekOnLoadPending = false;
+    
+    // Helper function to get gap value with fallback
+    function getGapValue(track) {
+        return track && track.gap !== undefined ? track.gap : DEFAULT_GAP_SECONDS;
+    }
     
     // --- AUDIO ENGINE ---
     let isAnalysisMode = false;
@@ -818,9 +827,9 @@
         });
         audioObj.addEventListener('ended', async () => { 
             try {
-                if (currentTrackIndex + 1 < playlistFiles.length) {
+                if (currentTrackIndex >= 0 && currentTrackIndex + 1 < playlistFiles.length) {
                     const currentTrack = playlistFiles[currentTrackIndex];
-                    const gapSeconds = currentTrack && currentTrack.gap !== undefined ? currentTrack.gap : 2.0;
+                    const gapSeconds = getGapValue(currentTrack);
                     log(`Track ended. Waiting ${gapSeconds}s before next track`);
                     await new Promise(resolve => setTimeout(resolve, gapSeconds * 1000));
                     await playTrack(currentTrackIndex + 1);
@@ -1297,8 +1306,14 @@
         Array.from(files).forEach(f => { if(f.name.toLowerCase().endsWith('.wav')) tx.objectStore(STORE_LIBRARY).put({ name: f.name, blob: f }); });
         tx.oncomplete = () => { hideLoading(); loadLibraryFromDB(); };
     }
-    function addToPlaylistDB(fileName) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).add({ name: fileName, gap: 2.0 }); tx.oncomplete = loadPlaylistFromDB; }
-    function loadPlaylistFromDB() { db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => { playlistFiles = e.target.result.map(i => ({ id: i.id, name: i.name, gap: i.gap !== undefined ? i.gap : 2.0 })); renderPlaylistUI(); updateQueueStats(); }; }
+    function addToPlaylistDB(fileName) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).add({ name: fileName, gap: DEFAULT_GAP_SECONDS }); tx.oncomplete = loadPlaylistFromDB; }
+    function loadPlaylistFromDB() { 
+        db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => { 
+            playlistFiles = e.target.result.map(i => ({ id: i.id, name: i.name, gap: getGapValue(i) })); 
+            renderPlaylistUI(); 
+            updateQueueStats(); 
+        }; 
+    }
     function loadLibraryFromDB() {
         db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onsuccess = (e) => {
             const files = e.target.result; libraryList.innerHTML = '';
@@ -1330,16 +1345,25 @@
                 const dv = index === playlistFiles.length - 1 ? 'visibility:hidden' : '';
                 moveButtons = `<span class="icon-btn move-btn" style="${uv}">▲</span><span class="icon-btn move-btn" style="${dv}">▼</span>`;
             }
-            const gapValue = track.gap !== undefined ? track.gap : 2.0;
-            el.innerHTML = `<span class="trunc-text">${index+1}. ${escapeHtml(track.name)}</span><div class="icon-group"><span class="gap-label">Gap</span><input type="number" class="gap-input" value="${gapValue}" min="0" max="60" step="0.1" title="Gap in seconds before next track">${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
+            const gapValue = getGapValue(track);
+            el.innerHTML = `<span class="trunc-text">${index+1}. ${escapeHtml(track.name)}</span>` +
+                `<div class="icon-group">` +
+                `<span class="gap-label">Gap</span>` +
+                `<input type="number" class="gap-input" value="${gapValue}" min="0" max="${MAX_GAP_SECONDS}" step="0.1" title="Gap in seconds before next track">` +
+                `${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
             
             // Handle gap input change
             const gapInput = el.querySelector('.gap-input');
             gapInput.addEventListener('click', (e) => e.stopPropagation());
             gapInput.addEventListener('change', (e) => {
                 e.stopPropagation();
-                const newGap = parseFloat(e.target.value);
+                let newGap = parseFloat(e.target.value);
                 if (!isNaN(newGap) && newGap >= 0) {
+                    // Enforce max value
+                    if (newGap > MAX_GAP_SECONDS) {
+                        newGap = MAX_GAP_SECONDS;
+                        e.target.value = String(MAX_GAP_SECONDS);
+                    }
                     playlistFiles[index].gap = newGap;
                     const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
                     const store = tx.objectStore(STORE_PLAYLIST);
@@ -1359,7 +1383,11 @@
                         if(currentTrackIndex === fromIndex) currentTrackIndex = index;
                         else if(currentTrackIndex > fromIndex && currentTrackIndex <= index) currentTrackIndex--;
                         else if(currentTrackIndex < fromIndex && currentTrackIndex >= index) currentTrackIndex++;
-                        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); const s = tx.objectStore(STORE_PLAYLIST); s.clear(); playlistFiles.forEach(i=>s.add({name:i.name, gap: i.gap !== undefined ? i.gap : 2.0})); tx.oncomplete=loadPlaylistFromDB;
+                        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); 
+                        const s = tx.objectStore(STORE_PLAYLIST); 
+                        s.clear(); 
+                        playlistFiles.forEach(i=>s.add({name:i.name, gap: getGapValue(i)})); 
+                        tx.oncomplete=loadPlaylistFromDB;
                     }
                 }
             });
@@ -1380,7 +1408,11 @@
         const target = index + dir; if(target<0||target>=playlistFiles.length)return;
         const t = playlistFiles[index]; playlistFiles[index]=playlistFiles[target]; playlistFiles[target]=t;
         if(currentTrackIndex===index)currentTrackIndex=target; else if(currentTrackIndex===target)currentTrackIndex=index;
-        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); const s = tx.objectStore(STORE_PLAYLIST); s.clear(); playlistFiles.forEach(i=>s.add({name:i.name, gap: i.gap !== undefined ? i.gap : 2.0})); tx.oncomplete=loadPlaylistFromDB;
+        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); 
+        const s = tx.objectStore(STORE_PLAYLIST); 
+        s.clear(); 
+        playlistFiles.forEach(i=>s.add({name:i.name, gap: getGapValue(i)})); 
+        tx.oncomplete=loadPlaylistFromDB;
     }
     function deleteFromPlaylist(id, index) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).delete(id); tx.oncomplete = () => { if(currentTrackIndex===index) stopTrack(); loadPlaylistFromDB(); }; }
     function addTouchGuardedClick(el, cb) { let sy; let drag=false; el.addEventListener('touchstart', (e)=>{sy=e.touches[0].clientY;drag=false;},{passive:true}); el.addEventListener('touchmove', (e)=>{if(Math.abs(e.touches[0].clientY-sy)>10)drag=true;},{passive:true}); el.addEventListener('click', (e)=>{if(drag){e.preventDefault();return;} cb(e);}); }
@@ -1397,11 +1429,11 @@
                         p.tracks.forEach(t => {
                             // Handle both old format (string) and new format (object with gap)
                             if (typeof t === 'string') {
-                                tx.objectStore(STORE_PLAYLIST).add({ name: t, gap: 2.0 });
+                                tx.objectStore(STORE_PLAYLIST).add({ name: t, gap: DEFAULT_GAP_SECONDS });
                             } else {
-                                tx.objectStore(STORE_PLAYLIST).add({ name: t.name, gap: t.gap !== undefined ? t.gap : 2.0 });
+                                tx.objectStore(STORE_PLAYLIST).add({ name: t.name, gap: getGapValue(t) });
                             }
-                        }); 
+                        });
                         tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; 
                     }
                 });
@@ -1460,16 +1492,16 @@
             });
             
             // Sanitize playlist - track names and gap values
-            const sanitizedPlaylist = playlistData.map(item => ({ name: item.name, gap: item.gap !== undefined ? item.gap : 2.0 }));
+            const sanitizedPlaylist = playlistData.map(item => ({ name: item.name, gap: getGapValue(item) }));
             
             // Sanitize presets - name and track list with gap values
             const sanitizedPresets = presetsData.map(preset => ({
                 name: preset.name,
                 tracks: preset.tracks.map(t => {
                     if (typeof t === 'string') {
-                        return { name: t, gap: 2.0 };
+                        return { name: t, gap: DEFAULT_GAP_SECONDS };
                     } else {
-                        return { name: t.name, gap: t.gap !== undefined ? t.gap : 2.0 };
+                        return { name: t.name, gap: getGapValue(t) };
                     }
                 })
             }));
@@ -1647,7 +1679,7 @@
                     const store = tx.objectStore(STORE_PLAYLIST);
                     
                     data.playlist.forEach(item => {
-                        store.add({ name: item.name, gap: item.gap !== undefined ? item.gap : 2.0 });
+                        store.add({ name: item.name, gap: getGapValue(item) });
                     });
                     
                     tx.oncomplete = () => resolve();
@@ -1669,9 +1701,9 @@
                         if (preset.name && preset.tracks) {
                             const tracks = preset.tracks.map(t => {
                                 if (typeof t === 'string') {
-                                    return { name: t, gap: 2.0 };
+                                    return { name: t, gap: DEFAULT_GAP_SECONDS };
                                 } else {
-                                    return { name: t.name, gap: t.gap !== undefined ? t.gap : 2.0 };
+                                    return { name: t.name, gap: getGapValue(t) };
                                 }
                             });
                             store.put({
@@ -1804,7 +1836,18 @@
     document.getElementById('importInput').addEventListener('change', (e) => { if(e.target.files[0]) { handleRestore(e.target.files[0]); } });
     document.getElementById('clearLibraryBtn').addEventListener('click', () => { if(confirm("Eject All?")) { const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).clear(); tx.oncomplete=loadLibraryFromDB; } });
     document.getElementById('clearPlaylistBtn').addEventListener('click', () => { if(confirm("Clear Queue?")) { const tx=db.transaction([STORE_PLAYLIST],'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; } });
-    document.getElementById('savePresetBtn').addEventListener('click', () => { if(playlistFiles.length===0)return alert("Empty"); const n=prompt("Name:"); if(n) { const tx=db.transaction([STORE_PRESETS],'readwrite'); tx.objectStore(STORE_PRESETS).put({name:n, tracks:playlistFiles.map(p=>({name:p.name, gap:p.gap !== undefined ? p.gap : 2.0}))}); tx.oncomplete=loadPresetsFromDB; } });
+    document.getElementById('savePresetBtn').addEventListener('click', () => { 
+        if(playlistFiles.length===0)return alert("Empty"); 
+        const n=prompt("Name:"); 
+        if(n) { 
+            const tx=db.transaction([STORE_PRESETS],'readwrite'); 
+            tx.objectStore(STORE_PRESETS).put({
+                name:n, 
+                tracks:playlistFiles.map(p=>({name:p.name, gap:getGapValue(p)}))
+            }); 
+            tx.oncomplete=loadPresetsFromDB; 
+        } 
+    });
     document.getElementById('exportBtn').addEventListener('click', () => {
         performBackup();
     });
