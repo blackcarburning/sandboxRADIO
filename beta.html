@@ -588,7 +588,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.23-BETA';
+    const APP_VERSION = 'v1.1.24-BETA';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -845,7 +845,6 @@
                     // iOS fix: Stop silent audio before next track
                     if (isIOS) {
                         audioObj.loop = false;
-                        audioObj.pause();
                     }
                     
                     await playTrack(currentTrackIndex + 1);
