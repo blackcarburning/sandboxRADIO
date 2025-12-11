@@ -616,6 +616,7 @@
     // Constants
     const DEFAULT_GAP_SECONDS = 2.0;
     const MAX_GAP_SECONDS = 60;
+    const SILENT_WAV_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
     
     let db, playlistFiles = [], currentTrackIndex = -1, isDraggingScrubber = false;
     let testEndTime = 10;
@@ -834,9 +835,9 @@
                     
                     // iOS fix: Play silent audio during gap to keep audio session active
                     if (isIOS) {
-                        audioObj.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+                        audioObj.src = SILENT_WAV_DATA_URI;
                         audioObj.loop = true;
-                        audioObj.play().catch(e => log('Silent play error: ' + e));
+                        audioObj.play().catch(e => log('Failed to play silent audio during gap: ' + e));
                     }
                     
                     await new Promise(resolve => setTimeout(resolve, gapSeconds * 1000));
