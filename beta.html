@@ -831,7 +831,22 @@
                     const currentTrack = playlistFiles[currentTrackIndex];
                     const gapSeconds = getGapValue(currentTrack);
                     log(`Track ended. Waiting ${gapSeconds}s before next track`);
+                    
+                    // iOS fix: Play silent audio during gap to keep audio session active
+                    if (isIOS) {
+                        audioObj.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+                        audioObj.loop = true;
+                        audioObj.play().catch(e => log('Silent play error: ' + e));
+                    }
+                    
                     await new Promise(resolve => setTimeout(resolve, gapSeconds * 1000));
+                    
+                    // iOS fix: Stop silent audio before next track
+                    if (isIOS) {
+                        audioObj.loop = false;
+                        audioObj.pause();
+                    }
+                    
                     await playTrack(currentTrackIndex + 1);
                 } else { 
                     scrubber.value = 0; 
