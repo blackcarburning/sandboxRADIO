@@ -655,9 +655,10 @@
     let keepAliveInterval = null;
     let silentOscillator = null;
     let silentGain = null;
-    let resumeRetryCount = 0;
     const MAX_RESUME_RETRIES = 5;
+    const MAX_RETRY_DELAY_MS = 5000;
     const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
+    let cachedSilentBuffer = null; // Reusable silent buffer for heartbeat
 
     // Stats & Config
     let integratedSum = 0;
@@ -754,16 +755,25 @@
             // Play brief silent buffer to keep hardware audio path active
             try {
                 if (audioCtx && audioCtx.state === 'running') {
-                    const silentBuffer = audioCtx.createBufferSource();
-                    silentBuffer.buffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+                    // Create cached buffer if needed
+                    if (!cachedSilentBuffer) {
+                        cachedSilentBuffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+                    }
+                    
+                    const silentBufferNode = audioCtx.createBufferSource();
+                    silentBufferNode.buffer = cachedSilentBuffer;
                     const silentGainNode = audioCtx.createGain();
                     silentGainNode.gain.value = 0;
-                    silentBuffer.connect(silentGainNode);
+                    silentBufferNode.connect(silentGainNode);
                     silentGainNode.connect(audioCtx.destination);
-                    silentBuffer.start(0);
-                    silentBuffer.onended = () => {
-                        silentBuffer.disconnect();
-                        silentGainNode.disconnect();
+                    silentBufferNode.start(0);
+                    silentBufferNode.onended = () => {
+                        try {
+                            silentBufferNode.disconnect();
+                            silentGainNode.disconnect();
+                        } catch (e) {
+                            // Ignore cleanup errors
+                        }
                     };
                 }
             } catch (e) {
@@ -777,6 +787,7 @@
             log('Stopping iOS audio session heartbeat');
             clearInterval(keepAliveInterval);
             keepAliveInterval = null;
+            cachedSilentBuffer = null; // Clear cached buffer
         }
     }
     
@@ -823,7 +834,7 @@
         
         for (let attempt = 0; attempt < MAX_RESUME_RETRIES; attempt++) {
             try {
-                const delay = Math.min(1000 * Math.pow(2, attempt), 5000); // Max 5 second delay
+                const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RETRY_DELAY_MS);
                 if (attempt > 0) {
                     log(`Resume retry ${attempt + 1}/${MAX_RESUME_RETRIES} after ${delay}ms`);
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -831,7 +842,6 @@
                 
                 await audioCtx.resume();
                 log('AudioContext resumed successfully' + (attempt > 0 ? ` after ${attempt + 1} attempts` : ''));
-                resumeRetryCount = 0;
                 return true;
             } catch (e) {
                 log(`Resume attempt ${attempt + 1} failed: ${String(e)}`);
@@ -2250,17 +2260,8 @@
                             if (success) {
                                 log('AudioContext resumed successfully');
                                 
-                                // Re-establish mediaSource connection if needed
-                                if (currentAudio && !mediaSource) {
-                                    log('Re-establishing mediaSource connection');
-                                    try {
-                                        mediaSource = audioCtx.createMediaElementSource(currentAudio);
-                                        mediaSource.connect(stereoPath);
-                                        mediaSource.connect(monoPath);
-                                    } catch (e) {
-                                        log('Failed to re-establish mediaSource: ' + String(e));
-                                    }
-                                }
+                                // Note: mediaSource re-establishment is handled by initWebAudio if needed
+                                // We avoid calling createMediaElementSource here as it can only be called once per element
                                 
                                 // Resume playback if it was playing before interrupt
                                 if (wasPlayingBeforeInterrupt && currentAudio && currentAudio.paused) {
