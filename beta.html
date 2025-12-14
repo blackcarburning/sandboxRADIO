@@ -815,13 +815,17 @@
     
     function stopSilentOscillator() {
         if (silentOscillator) {
+            log('Stopping silent oscillator');
             try {
-                log('Stopping silent oscillator');
                 silentOscillator.stop();
+            } catch (e) {
+                // Oscillator may already be stopped, ignore error
+            }
+            try {
                 silentOscillator.disconnect();
                 silentGain.disconnect();
             } catch (e) {
-                log('Error stopping silent oscillator: ' + String(e));
+                log('Error disconnecting silent oscillator: ' + String(e));
             }
             silentOscillator = null;
             silentGain = null;
@@ -836,7 +840,7 @@
             try {
                 const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RETRY_DELAY_MS);
                 if (attempt > 0) {
-                    log(`Resume retry ${attempt + 1}/${MAX_RESUME_RETRIES} after ${delay}ms`);
+                    log(`Resume retry: attempt ${attempt + 1} of ${MAX_RESUME_RETRIES} after ${delay}ms delay`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
                 
@@ -1204,8 +1208,8 @@
                 }
             });
             
-            // Start iOS keep-alive mechanisms
-            if (isIOS) {
+            // Start iOS keep-alive mechanisms (only in Analysis Mode)
+            if (isIOS && isAnalysisMode) {
                 startSilentOscillator();
                 startKeepAliveHeartbeat();
             }
@@ -2245,7 +2249,8 @@
                     // Restart keep-alive mechanisms if on iOS
                     if (isIOS) {
                         startKeepAliveHeartbeat();
-                        if (audioCtx && !silentOscillator) {
+                        // Always try to start oscillator - startSilentOscillator checks if already running
+                        if (audioCtx) {
                             startSilentOscillator();
                         }
                     }
