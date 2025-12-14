@@ -142,6 +142,8 @@
         .vol-label { font-size: 0.6rem; font-weight: bold; color: #888; margin-right: 6px; }
         #volumeSlider { width: 80px; }
         #volumeSlider::-webkit-slider-thumb { background: #10b981; box-shadow: 0 0 5px #10b981; }
+        #btnVolToggle { margin-left: 8px; }
+        #btnVolToggle.max-mode { color: #ef4444; font-weight: bold; }
         
         /* METER BRIDGE */
         .meter-bridge {
@@ -520,6 +522,7 @@
                 <div class="volume-group" id="vol-control-container">
                     <span class="vol-label">VOL (POST)</span>
                     <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" autocomplete="off">
+                    <button id="btnVolToggle" class="util-btn">VAR</button>
                 </div>
             </div>
         </div>
@@ -631,6 +634,7 @@
     // --- AUDIO ENGINE ---
     let isAnalysisMode = false;
     let isMono = false;
+    let isVolBypass = false; // Volume bypass state: false = VAR mode, true = MAX mode
     let currentAudio = null;
     let silentAudio = new Audio(); // Dedicated silent audio player for iOS gap management
     let audioCtx = null;
@@ -685,6 +689,7 @@
     const testEndInput = document.getElementById('testEndInput');
     const volumeSlider = document.getElementById('volumeSlider');
     const volContainer = document.getElementById('vol-control-container');
+    const btnVolToggle = document.getElementById('btnVolToggle');
     
     const toggleAnalysisBtn = document.getElementById('toggleAnalysisBtn');
     const toggleLabBtn = document.getElementById('toggleLabBtn');
@@ -1894,9 +1899,39 @@
         store.get('masterVolume').onsuccess = (e) => { if(e.target.result) { volumeSlider.value = e.target.result.value; updateVolume(); } };
         store.get('scopeTimebase').onsuccess = (e) => { if(e.target.result) { scopeTimebase = parseInt(e.target.result.value); scopeZoomSlider.value = scopeTimebase; } };
     }
-    function updateVolume() { const v = parseFloat(volumeSlider.value); if (isAnalysisMode && masterGain) masterGain.gain.value = v; else if (!isIOS && currentAudio) currentAudio.volume = v; }
-    volumeSlider.addEventListener('input', updateVolume);
+    function updateVolume() { 
+        const v = parseFloat(volumeSlider.value); 
+        if (isVolBypass) return; // Don't update if in MAX mode
+        if (isAnalysisMode && masterGain) masterGain.gain.value = v; 
+        else if (!isIOS && currentAudio) currentAudio.volume = v; 
+    }
+    volumeSlider.addEventListener('input', () => {
+        if (isVolBypass) {
+            // If slider is moved while in MAX mode, disable MAX and apply slider value
+            isVolBypass = false;
+            btnVolToggle.textContent = 'VAR';
+            btnVolToggle.classList.remove('max-mode');
+        }
+        updateVolume();
+    });
     volumeSlider.addEventListener('change', (e) => { if(db) db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'masterVolume', value: parseFloat(e.target.value) }); });
+    
+    // Volume bypass/toggle button event listener
+    btnVolToggle.addEventListener('click', () => {
+        isVolBypass = !isVolBypass;
+        if (isVolBypass) {
+            // MAX mode: set volume to 1.0
+            btnVolToggle.textContent = 'MAX';
+            btnVolToggle.classList.add('max-mode');
+            if (isAnalysisMode && masterGain) masterGain.gain.value = 1.0;
+            else if (!isIOS && currentAudio) currentAudio.volume = 1.0;
+        } else {
+            // VAR mode: restore slider volume
+            btnVolToggle.textContent = 'VAR';
+            btnVolToggle.classList.remove('max-mode');
+            updateVolume();
+        }
+    });
     function updateTimeDisplay(override) { const curr = override !== undefined ? override : currentAudio.currentTime; timeDisplay.textContent = `${formatTime(curr)} / ${formatTime(currentAudio.duration || 0)}`; }
     function formatTime(s) { if (!s || isNaN(s)) return "0:00"; const m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc.toString().padStart(2, '0')}`; }
     function updateQueueStats() { totalTimeDisplay.textContent = `Queue: ${playlistFiles.length} Tracks`; }
