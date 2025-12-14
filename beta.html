@@ -108,12 +108,12 @@
         .lcd-glass { position: absolute; top:0; left:0; right:0; bottom:0; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%); z-index: 20; }
         .time-readout { font-family: 'Courier New', monospace; color: var(--display-text); font-weight: bold; min-width: 110px; font-size: 0.8rem; margin-right: 10px; }
         .marquee-container { width: 100%; overflow: hidden; white-space: nowrap; position: relative; }
-        .marquee-inner { display: inline-block; font-family: 'Courier New', monospace; color: #2a7a9e; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; animation: marquee 10s linear infinite; }
+        .marquee-inner { display: inline-block; font-family: 'Courier New', monospace; color: #2a7a9e; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; animation: marquee 15s linear infinite; padding-left: 100%; }
         @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
 
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #334155; border-radius: 2px; }
-        input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--display-text); cursor: pointer; -webkit-appearance: none; margin-top: -6px; box-shadow: 0 0 5px rgba(56, 189, 248, 0.5); }
+        input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--display-text); cursor: pointer; -webkit-appearance: none; margin-top: -6px; box-shadow: 0 0 5px var(--display-text); position: relative; z-index: 5; }
         #scrubber { width: 100%; flex: 1; }
 
         .transport-row { display: flex; justify-content: center; gap: 6px; align-items: center; flex-wrap: wrap;}
@@ -318,7 +318,7 @@
         .move-btn { font-size: 0.8rem; color: #888; } .move-btn:hover { color: #fff; }
         .remove-btn { color: #ef4444; } .add-btn { color: #10b981; }
         .trunc-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; margin-right: 5px; }
-        .gap-input { width: 50px; background: #111; color: #38bdf8; border: 1px solid #444; text-align: center; font-family: monospace; font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; margin-left: 5px; }
+        .gap-input { width: 50px; background: #111; color: #38bdf8; border: 1px solid #444; text-align: center; font-family: monospace; font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; margin-right: 5px; }
         .gap-input:focus { outline: none; border-color: var(--accent-color); }
         .gap-label { font-size: 0.65rem; color: #888; margin-right: 3px; }
         
@@ -441,7 +441,7 @@
         </div>
     </div>
 
-    <div id="loadingOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:50;display:none;align-items:center;justify-content:center;color:white;font-family:monospace;font-size:1.2rem;font-weight:bold;">Processing...</div>
+    <div id="loadingOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:50;display:none;align-items:center;justify-content:center;color:white;font-weight:bold;">Processing...</div>
 
     <div class="top-deck">
         <div class="logo">sandbox<span>RADIO</span><span class="beta-badge">BETA</span><span id="versionTag" class="version-display"></span></div>
@@ -588,7 +588,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.26-BETA';
+    const APP_VERSION = 'v1.1.25-BETA';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -724,16 +724,7 @@
 
     // --- SCRUBBER EVENT LISTENERS ---
     scrubber.addEventListener('input', () => { isDraggingScrubber = true; updateTimeDisplay(scrubber.value); });
-    scrubber.addEventListener('change', () => { 
-        if(currentAudio) { 
-            // Ensure audio context is active when scrubbing ends
-            if(isAnalysisMode && audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => log('Context resumed on scrubber change'));
-            }
-            currentAudio.currentTime = scrubber.value; 
-            isDraggingScrubber = false; 
-        } 
-    });
+    scrubber.addEventListener('change', () => { if(currentAudio) { currentAudio.currentTime = scrubber.value; isDraggingScrubber = false; } });
     scrubber.addEventListener('mousedown', () => isDraggingScrubber = true);
     scrubber.addEventListener('touchstart', () => isDraggingScrubber = true, {passive: true});
     scrubber.addEventListener('mouseup', () => isDraggingScrubber = false);
@@ -821,9 +812,7 @@
     function setupAudioEvents(audioObj) {
         audioObj.addEventListener('play', () => { 
             log('currentAudio: play event');
-            playBtn.innerHTML = '&#10074;&#10074;';
-            // Always attempt to resume context on play event
-            ensureAudioContextActive();
+            playBtn.innerHTML = '&#10074;&#10074;'; 
         });
         audioObj.addEventListener('pause', () => { 
             log('currentAudio: pause event');
@@ -885,30 +874,6 @@
         currentAudio.playsInline = true;
         setupAudioEvents(currentAudio);
     }
-    
-    // --- AUDIO CONTEXT PERSISTENCE HELPER ---
-    // Forces the AudioContext to resume if it is suspended or interrupted (common on iOS lock screen or switching apps)
-    async function ensureAudioContextActive() {
-        if (!isAnalysisMode || !audioCtx) return;
-        
-        if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
-            log(`AudioContext state is '${audioCtx.state}'. Attempting resume...`);
-            try {
-                await audioCtx.resume();
-                log(`AudioContext resume success. State is now: ${audioCtx.state}`);
-            } catch (err) {
-                log(`AudioContext resume failed: ${err}`);
-            }
-        }
-    }
-
-    // Monitor Visibility Change to recover audio on unlock/foreground
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            log('App Foregrounded. Checking AudioContext...');
-            ensureAudioContextActive();
-        }
-    });
 
     toggleAnalysisBtn.addEventListener('click', () => {
         if(currentAudio) { currentAudio.pause(); currentAudio.src = ""; }
@@ -976,12 +941,6 @@
             log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
-            
-            // Add state change listener for debugging and recovery
-            audioCtx.onstatechange = () => {
-                log(`AudioContext state changed to: ${audioCtx.state}`);
-            };
-
             // KICKSTART: Briefly play silence to force the hardware to wake up
             try {
                 const warmUp = audioCtx.createBufferSource();
@@ -1038,6 +997,1041 @@
                 }
             };
             preMaster.connect(scriptProcessor);
+
+            if(isMono) { stereoPath.gain.value = 0; monoPath.gain.value = 1; }
+            else { stereoPath.gain.value = 1; monoPath.gain.value = 0; }
+            
+            startAnalysisLoop();
+        } else {
+            log('initWebAudio: Reusing existing AudioContext');
+        }
+        if (audioCtx.state === 'suspended') {
+            log('initWebAudio: Context suspended, calling resume()');
+            await audioCtx.resume();
+            log('initWebAudio: Context resumed');
         }
     }
 
+    function startAnalysisLoop() {
+        if(rafID) cancelAnimationFrame(rafID);
+        
+        const timeDomainBuffer = new Float32Array(analyser.fftSize); 
+        const freqBuffer = new Uint8Array(analyser.frequencyBinCount); 
+        
+        const freqBufferM = new Uint8Array(analyser.frequencyBinCount);
+        const freqBufferS = new Uint8Array(analyser.frequencyBinCount);
+        
+        const bufferL = new Float32Array(2048);
+        const bufferR = new Float32Array(2048);
+        
+        const ctx = mainCanvas.getContext('2d');
+        const wCtx = waterfallCanvas.getContext('2d');
+        
+        let accumulator = 0;
+        let frames = 0;
+        let lastUpdateTime = 0;
+        let maxPeak = 0;
+        
+        const checkResize = () => {
+            if (!analysisLab.classList.contains('open')) return;
+            const rect = analysisLab.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.floor(rect.width);
+            const height = 200; 
+            if(mainCanvas.style.width !== width + 'px') {
+                mainCanvas.style.width = width + 'px'; mainCanvas.style.height = height + 'px';
+                waterfallCanvas.style.width = width + 'px'; waterfallCanvas.style.height = height + 'px';
+            }
+            if(mainCanvas.width !== width * dpr) {
+                mainCanvas.width = width * dpr; mainCanvas.height = height * dpr; ctx.scale(dpr, dpr);
+                waterfallCanvas.width = width * dpr; waterfallCanvas.height = height * dpr;
+            }
+        };
+
+        function draw(time) {
+            if (!isAnalysisMode || !analyser) return;
+            checkResize(); 
+            
+            analyser.getFloatTimeDomainData(timeDomainBuffer); 
+            analyser.getByteFrequencyData(freqBuffer);
+            analyserL.getFloatTimeDomainData(bufferL); 
+            analyserR.getFloatTimeDomainData(bufferR);
+            
+            if(spectrumModeMS && activeTab === 'spectrum') {
+                analyserMid.getByteFrequencyData(freqBufferM);
+                analyserSide.getByteFrequencyData(freqBufferS);
+            }
+
+            // MATHS
+            let sum = 0; let currentPeak = 0;
+            for (let i = 0; i < timeDomainBuffer.length; i++) { 
+                const amp = timeDomainBuffer[i]; sum += amp * amp; 
+                const abs = Math.abs(amp); if(abs > currentPeak) currentPeak = abs;
+            }
+            if(currentPeak > maxPeak) maxPeak = currentPeak;
+            let frameMeanSquare = sum / timeDomainBuffer.length;
+            let frameRms = Math.sqrt(frameMeanSquare);
+            accumulator += frameRms; frames++;
+            if (frameMeanSquare > 0) { integratedSum += frameMeanSquare; integratedCount++; }
+            
+            // VU Calculations
+            let pL = 0, pR = 0;
+            for (let i = 0; i < bufferL.length; i+=4) {
+                if (Math.abs(bufferL[i]) > pL) pL = Math.abs(bufferL[i]);
+                if (Math.abs(bufferR[i]) > pR) pR = Math.abs(bufferR[i]);
+            }
+            
+            // 1. Update Max Peak Text
+            let currentMax = Math.max(pL, pR);
+            let currentMaxDb = 20 * Math.log10(currentMax);
+            if(currentMaxDb > maxPeakDb) {
+                maxPeakDb = currentMaxDb;
+                if(maxPeakDb > 0) maxPeakDb = 0;
+                maxPeakValue.textContent = maxPeakDb.toFixed(1) + "dB";
+            }
+
+            // 2. Decay Physics
+            decayL = Math.max(pL, decayL * 0.90);
+            decayR = Math.max(pR, decayR * 0.90);
+            
+            // 3. Peak Hold Logic
+            if (pL > peakHoldL) { peakHoldL = pL; peakHoldTimerL = time + 1500; }
+            else if (time > peakHoldTimerL) { peakHoldL *= 0.95; }
+            
+            if (pR > peakHoldR) { peakHoldR = pR; peakHoldTimerR = time + 1500; }
+            else if (time > peakHoldTimerR) { peakHoldR *= 0.95; }
+
+            // 4. Clip Latching
+            if (pL >= 0.99) clipL.classList.add('latched');
+            if (pR >= 0.99) clipR.classList.add('latched');
+            
+            // Correlation
+            let slr = 0, sl2 = 0, sr2 = 0;
+            for(let i=0; i<bufferL.length; i+=4) { 
+                slr += bufferL[i] * bufferR[i]; sl2 += bufferL[i] * bufferL[i]; sr2 += bufferR[i] * bufferR[i];
+            }
+            const den = Math.sqrt(sl2 * sr2); let corr = den > 0.0001 ? slr / den : 0;
+
+            if (time - lastUpdateTime > 50) { 
+                // Update UI
+                vuL.style.width = (decayL * 100) + '%';
+                vuR.style.width = (decayR * 100) + '%';
+                
+                phL.style.display = 'block'; phL.style.left = (peakHoldL * 100) + '%';
+                phR.style.display = 'block'; phR.style.left = (peakHoldR * 100) + '%';
+                
+                phaseValue.textContent = corr.toFixed(2);
+                if (corr < 0) phaseBox.classList.add('phase-alert'); else phaseBox.classList.remove('phase-alert');
+
+                if (time - lastUpdateTime > 1000) {
+                    if (frames > 0) {
+                        let avgRms = accumulator / frames;
+                        let db = 20 * Math.log10(avgRms); if (db < -100 || !isFinite(db)) db = -100;
+                        lufsValue.textContent = db.toFixed(1);
+                        let peakDb = 20 * Math.log10(maxPeak); if (peakDb < -100) peakDb = -100;
+                        let plr = peakDb - db; if(plr < 0) plr = 0;
+                        plrValue.textContent = plr.toFixed(1);
+                    }
+                    if (integratedCount > 0) {
+                        let sessionAvgPower = integratedSum / integratedCount;
+                        let intDb = 10 * Math.log10(sessionAvgPower); if (intDb < -100 || !isFinite(intDb)) intDb = -100;
+                        lufsIntValue.textContent = intDb.toFixed(1);
+                    } else lufsIntValue.textContent = "---";
+                    accumulator = 0; frames = 0; lastUpdateTime = time; maxPeak = 0;
+                }
+            }
+            
+            if (analysisLab.classList.contains('open')) {
+                const w = parseFloat(mainCanvas.style.width);
+                const h = parseFloat(mainCanvas.style.height);
+                
+                if (activeTab === 'spectrum') {
+                    ctx.clearRect(0, 0, w, h);
+                    const nyquist = audioCtx.sampleRate / 2;
+                    const totalBins = freqBuffer.length;
+                    const minLog = Math.log10(20); const maxLog = Math.log10(22050); const scale = w / (maxLog - minLog);
+                    
+                    // GRID
+                    ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                    [{f:20,t:'20'},{f:100,t:'100'},{f:1000,t:'1k'},{f:5000,t:'5k'},{f:10000,t:'10k'},{f:20000,t:'20k'}].forEach(l => {
+                        const x = (Math.log10(l.f)-minLog)*scale; if(x>=0 && x<=w) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); ctx.fillText(l.t, x, h-5); }
+                    });
+                    ctx.textAlign = 'right';
+                    [0, -20, -40, -60].forEach(db => {
+                        const yPos = (db === 0) ? 10 : Math.abs(db/60) * h; 
+                        if(yPos < h) { ctx.beginPath(); ctx.moveTo(0,yPos); ctx.lineTo(w,yPos); ctx.stroke(); ctx.fillText(db+"dB", w-5, yPos+3); }
+                    });
+
+                    if (!spectrumModeMS) {
+                        ctx.beginPath(); ctx.moveTo(0, h);
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBuffer[binIndex];
+                            ctx.lineTo(x, h - (value / 255) * h);
+                        }
+                        ctx.lineTo(w, h); ctx.closePath();
+                        const g = ctx.createLinearGradient(0, h, 0, 0); g.addColorStop(0, '#0ea5e9'); g.addColorStop(1, '#8b5cf6');
+                        ctx.fillStyle = g; ctx.fill();
+                    } else {
+                        ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2; ctx.beginPath();
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBufferM[binIndex];
+                            const y = h - (value / 255) * h;
+                            if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                        }
+                        ctx.stroke();
+                        ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2; ctx.beginPath();
+                        for (let x = 0; x < w; x++) {
+                            const freq = Math.pow(10, (x / scale) + minLog);
+                            const binIndex = Math.round(freq / nyquist * totalBins);
+                            let value = 0; if (binIndex >= 0 && binIndex < totalBins) value = freqBufferS[binIndex];
+                            const y = h - (value / 255) * h;
+                            if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                        }
+                        ctx.stroke();
+                        ctx.fillStyle = '#22d3ee'; ctx.fillText("MID", w-40, 30);
+                        ctx.fillStyle = '#f97316'; ctx.fillText("SIDE", w-40, 42);
+                    }
+
+                } else if (activeTab === 'scope') {
+                    ctx.clearRect(0, 0, w, h);
+                    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 1; ctx.beginPath();
+                    const samplesToShow = Math.floor(audioCtx.sampleRate * (scopeTimebase / 1000));
+                    let readPos = scopeWritePos - samplesToShow; if (readPos < 0) readPos += HISTORY_SIZE;
+                    const samplesPerPixel = samplesToShow / w;
+                    if (samplesPerPixel >= 1.0) {
+                        for (let i = 0; i < w; i++) {
+                            let start = Math.floor(i * samplesPerPixel); let end = Math.floor((i + 1) * samplesPerPixel);
+                            let min = 1.0, max = -1.0;
+                            for(let j=start; j<end; j++) {
+                                let idx = (readPos + j) % HISTORY_SIZE; let val = scopeBuffer[idx];
+                                if(val < min) min = val; if(val > max) max = val;
+                            }
+                            if (min > max) { min = 0; max = 0; }
+                            const yMin = (h / 2) + (min * h / 2 * -1); const yMax = (h / 2) + (max * h / 2 * -1);
+                            ctx.moveTo(i, yMin); ctx.lineTo(i, yMax);
+                        }
+                    } else {
+                        for (let i = 0; i < w; i++) {
+                            let sampleIdx = Math.floor(i * samplesPerPixel); let idx = (readPos + sampleIdx) % HISTORY_SIZE;
+                            const v = scopeBuffer[idx]; const y = (h / 2) + (v * h / 2 * -1);
+                            if(i === 0) ctx.moveTo(i, y); else ctx.lineTo(i, y);
+                        }
+                    }
+                    ctx.stroke();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth=1; 
+                    ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace';
+                    ctx.textAlign = 'left'; ctx.fillText("+1.0", 5, 12); ctx.fillText("-1.0", 5, h-5);
+                    ctx.textAlign = 'right'; ctx.fillText(scopeTimebase + "ms", w-5, h-5);
+
+                } else if (activeTab === 'vector') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0,0,w,h);
+                    const cx = w / 2; const cy = (h - 20) / 2; const r = (h - 30) / 2;
+                    ctx.fillStyle = corr < 0 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(56, 189, 248, 0.8)';
+                    for(let i=0; i<bufferL.length; i+=8) {
+                        const l = bufferL[i]; const vr = bufferR[i];
+                        const x = (vr - l) * r + cx; const y = (vr + l) * r * -1 + cy;
+                        ctx.fillRect(x, y, 2, 2);
+                    }
+                    ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign='center';
+                    ctx.fillText("M", cx, 10); ctx.fillText("S", 10, cy); ctx.fillText("S", w-10, cy);
+                    ctx.fillText("L", cx-r+10, cy-r+10); ctx.fillText("R", cx+r-10, cy-r+10);
+                    const by = h - 10; const bw = 200; const bx = (w - bw) / 2;
+                    ctx.fillStyle = '#333'; ctx.fillRect(bx, by, bw, 6);
+                    ctx.fillStyle = '#fff'; ctx.fillRect(w/2, by-2, 1, 10);
+                    const ix = w/2 + (corr * (bw/2));
+                    ctx.fillStyle = corr >= 0 ? '#10b981' : '#ef4444'; ctx.beginPath(); ctx.arc(ix, by+3, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.fillText("-1", bx - 15, by+6); ctx.fillText("+1", bx + bw + 15, by+6);
+
+                } else if (activeTab === 'waterfall') {
+                    const ww = waterfallCanvas.width; const wh = waterfallCanvas.height;
+                    wCtx.drawImage(waterfallCanvas, 0, 0, ww, wh - 1, 0, 1, ww, wh - 1);
+                    const bw = ww / 128; const bs = Math.floor(freqBuffer.length / 128);
+                    for (let i = 0; i < 128; i++) {
+                        let v = freqBuffer[i * bs];
+                        const hue = 240 - (v / 255) * 240;
+                        wCtx.fillStyle = `hsl(${hue}, 100%, 50%)`; wCtx.fillRect(i * bw, 0, bw + 1, 1);
+                    }
+                    wCtx.fillStyle = 'rgba(0,0,0,0.8)'; wCtx.fillRect(0, wh-30, ww, 30);
+                    wCtx.fillStyle = '#fff'; wCtx.font = '20px monospace'; wCtx.textAlign = 'center';
+                    [{t:'Low',p:0.1}, {t:'Mid',p:0.5}, {t:'High',p:0.9}].forEach(l=>{ wCtx.fillText(l.t, ww*l.p, wh-10); });
+                }
+            }
+            rafID = requestAnimationFrame(draw);
+        }
+        rafID = requestAnimationFrame(draw);
+    }
+    
+    function stopAnalysisLoop() { if(rafID) cancelAnimationFrame(rafID); rafID = null; }
+
+    function initDB() {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_LIBRARY)) db.createObjectStore(STORE_LIBRARY, { keyPath: 'name' });
+            if (!db.objectStoreNames.contains(STORE_PRESETS)) db.createObjectStore(STORE_PRESETS, { keyPath: 'name' });
+            if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+            if (db.objectStoreNames.contains(STORE_PLAYLIST)) db.deleteObjectStore(STORE_PLAYLIST);
+            db.createObjectStore(STORE_PLAYLIST, { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = (e) => { db = e.target.result; refreshAllUI(); };
+    }
+
+    function refreshAllUI() { createNewAudioPlayer(); loadLibraryFromDB(); loadPlaylistFromDB(); loadPresetsFromDB(); loadSettingsFromDB(); }
+
+    async function playTrack(index) {
+        if (index < 0 || index >= playlistFiles.length) return;
+        integratedSum = 0; integratedCount = 0; lufsIntValue.textContent = "---";
+        resetMaxPeak(); // RESET PEAK ON TRACK CHANGE
+        if (isAnalysisMode) await initWebAudio();
+        const trackName = playlistFiles[index].name;
+        trackTitleDisplay.textContent = trackName;
+        db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).get(trackName).onsuccess = (e) => {
+            const result = e.target.result;
+            if(result && result._isOffline) {
+                showToast('Track is offline - audio file not available');
+                log('Cannot play offline track: ' + trackName);
+                if (playlistFiles && currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1);
+            } else if(result && result.blob) {
+                if (currentAudio.src) URL.revokeObjectURL(currentAudio.src);
+                currentAudio.src = URL.createObjectURL(result.blob);
+                currentAudio.load(); updateVolume();
+                currentAudio.play().then(() => {
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName, artist: 'sandboxRADIO', album: 'Analysis Lab' });
+                        navigator.mediaSession.setActionHandler('play', () => currentAudio.play());
+                        navigator.mediaSession.setActionHandler('pause', () => currentAudio.pause());
+                        navigator.mediaSession.setActionHandler('previoustrack', () => playTrack(index-1));
+                        navigator.mediaSession.setActionHandler('nexttrack', () => playTrack(index+1));
+                    }
+                }).catch(err => console.error(err));
+                currentTrackIndex = index; renderPlaylistUI();
+            } else { if (currentTrackIndex + 1 < playlistFiles.length) playTrack(currentTrackIndex + 1); }
+        };
+    }
+
+    function stopTrack() { currentAudio.pause(); currentAudio.currentTime = 0; trackTitleDisplay.textContent = "---"; }
+    function saveToLibraryDB(files) {
+        showLoading("Importing...");
+        const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+        Array.from(files).forEach(f => { if(f.name.toLowerCase().endsWith('.wav')) tx.objectStore(STORE_LIBRARY).put({ name: f.name, blob: f }); });
+        tx.oncomplete = () => { hideLoading(); loadLibraryFromDB(); };
+    }
+    function addToPlaylistDB(fileName) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).add({ name: fileName, gap: DEFAULT_GAP_SECONDS }); tx.oncomplete = loadPlaylistFromDB; }
+    function loadPlaylistFromDB() { 
+        db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll().onsuccess = (e) => { 
+            playlistFiles = e.target.result.map(i => ({ id: i.id, name: i.name, gap: getGapValue(i) })); 
+            renderPlaylistUI(); 
+            updateQueueStats(); 
+        }; 
+    }
+    function loadLibraryFromDB() {
+        db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll().onsuccess = (e) => {
+            const files = e.target.result; libraryList.innerHTML = '';
+            if (files.length === 0) { libraryList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.5;">NO MEDIA LOADED</div>'; return; }
+            files.sort((a,b) => a.name.localeCompare(b.name));
+            files.forEach(rec => {
+                const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
+                const offlineIndicator = rec._isOffline ? ' <span style="color:#ea580c;font-size:0.75em;">[OFFLINE]</span>' : '';
+                const escapedName = escapeHtml(rec.name);
+                el.innerHTML = `<span class="trunc-text" title="${escapedName}">${escapedName}${offlineIndicator}</span><div class="icon-group"><span class="icon-btn add-btn">+</span><span class="icon-btn remove-btn">×</span></div>`;
+                if (rec._isOffline) el.style.opacity = '0.6';
+                el.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('type', 'library'); ev.dataTransfer.setData('name', rec.name); });
+                el.querySelector('.add-btn').addEventListener('click', () => addToPlaylistDB(rec.name));
+                el.querySelector('.remove-btn').addEventListener('click', (ev) => { ev.stopPropagation(); const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).delete(rec.name); tx.oncomplete=loadLibraryFromDB; });
+                el.addEventListener('dblclick', () => addToPlaylistDB(rec.name));
+                libraryList.appendChild(el);
+            });
+        };
+    }
+    function renderPlaylistUI() {
+        playlistList.innerHTML = '';
+        if(playlistFiles.length === 0) { playlistList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.5;">QUEUE EMPTY</div>'; updateQueueStats(); return; }
+        playlistFiles.forEach((track, index) => {
+            const el = document.createElement('div'); el.className = 'track-item'; el.draggable = true;
+            if(index === currentTrackIndex) el.classList.add('active');
+            let moveButtons = '';
+            if (playlistFiles.length > 1) {
+                const uv = index === 0 ? 'visibility:hidden' : '';
+                const dv = index === playlistFiles.length - 1 ? 'visibility:hidden' : '';
+                moveButtons = `<span class="icon-btn move-btn" style="${uv}">▲</span><span class="icon-btn move-btn" style="${dv}">▼</span>`;
+            }
+            const gapValue = getGapValue(track);
+            el.innerHTML = `<span class="trunc-text">${index+1}. ${escapeHtml(track.name)}</span>` +
+                `<div class="icon-group">` +
+                `<span class="gap-label">Gap</span>` +
+                `<input type="number" class="gap-input" value="${gapValue}" min="0" max="${MAX_GAP_SECONDS}" step="0.1" title="Gap in seconds before next track">` +
+                `${moveButtons}<span class="icon-btn remove-btn">×</span></div>`;
+            
+            // Handle gap input change
+            const gapInput = el.querySelector('.gap-input');
+            gapInput.addEventListener('click', (e) => e.stopPropagation());
+            gapInput.addEventListener('change', (e) => {
+                e.stopPropagation();
+                let newGap = parseFloat(e.target.value);
+                if (!isNaN(newGap) && newGap >= 0) {
+                    // Enforce max value
+                    if (newGap > MAX_GAP_SECONDS) {
+                        newGap = MAX_GAP_SECONDS;
+                        e.target.value = String(MAX_GAP_SECONDS);
+                    }
+                    playlistFiles[index].gap = newGap;
+                    const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
+                    const store = tx.objectStore(STORE_PLAYLIST);
+                    store.put({ id: track.id, name: track.name, gap: newGap });
+                }
+            });
+            
+            el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('type', 'playlist-sort'); e.dataTransfer.setData('index', index); });
+            el.addEventListener('dragover', (e) => e.preventDefault());
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.getData('type') === 'playlist-sort') {
+                    const fromIndex = parseInt(e.dataTransfer.getData('index')); 
+                    if (fromIndex !== index) {
+                        const moved = playlistFiles.splice(fromIndex, 1)[0];
+                        playlistFiles.splice(index, 0, moved);
+                        if(currentTrackIndex === fromIndex) currentTrackIndex = index;
+                        else if(currentTrackIndex > fromIndex && currentTrackIndex <= index) currentTrackIndex--;
+                        else if(currentTrackIndex < fromIndex && currentTrackIndex >= index) currentTrackIndex++;
+                        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); 
+                        const s = tx.objectStore(STORE_PLAYLIST); 
+                        s.clear(); 
+                        playlistFiles.forEach(i=>s.add({name:i.name, gap: getGapValue(i)})); 
+                        tx.oncomplete=loadPlaylistFromDB;
+                    }
+                }
+            });
+            addTouchGuardedClick(el, () => playTrack(index));
+            const btns = el.querySelectorAll('.icon-btn');
+            if(btns.length===3) {
+                btns[0].addEventListener('click', (e)=>{e.stopPropagation(); moveTrack(index, -1);});
+                btns[1].addEventListener('click', (e)=>{e.stopPropagation(); moveTrack(index, 1);});
+                btns[2].addEventListener('click', (e)=>{e.stopPropagation(); deleteFromPlaylist(track.id, index);});
+            } else {
+                btns[0].addEventListener('click', (e)=>{e.stopPropagation(); deleteFromPlaylist(track.id, index);});
+            }
+            playlistList.appendChild(el);
+        });
+    }
+    
+    function moveTrack(index, dir) {
+        const target = index + dir; if(target<0||target>=playlistFiles.length)return;
+        const t = playlistFiles[index]; playlistFiles[index]=playlistFiles[target]; playlistFiles[target]=t;
+        if(currentTrackIndex===index)currentTrackIndex=target; else if(currentTrackIndex===target)currentTrackIndex=index;
+        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); 
+        const s = tx.objectStore(STORE_PLAYLIST); 
+        s.clear(); 
+        playlistFiles.forEach(i=>s.add({name:i.name, gap: getGapValue(i)})); 
+        tx.oncomplete=loadPlaylistFromDB;
+    }
+    function deleteFromPlaylist(id, index) { const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); tx.objectStore(STORE_PLAYLIST).delete(id); tx.oncomplete = () => { if(currentTrackIndex===index) stopTrack(); loadPlaylistFromDB(); }; }
+    function addTouchGuardedClick(el, cb) { let sy; let drag=false; el.addEventListener('touchstart', (e)=>{sy=e.touches[0].clientY;drag=false;},{passive:true}); el.addEventListener('touchmove', (e)=>{if(Math.abs(e.touches[0].clientY-sy)>10)drag=true;},{passive:true}); el.addEventListener('click', (e)=>{if(drag){e.preventDefault();return;} cb(e);}); }
+    function loadPresetsFromDB() {
+        db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll().onsuccess = (e) => {
+            presetList.innerHTML = '';
+            e.target.result.forEach(p => {
+                const el = document.createElement('div'); el.className = 'preset-item';
+                el.innerHTML = `<span class="trunc-text">${escapeHtml(p.name)} (${p.tracks.length})</span> <span class="icon-btn remove-btn">×</span>`;
+                addTouchGuardedClick(el, () => { 
+                    if(confirm("Load Preset?")) { 
+                        const tx = db.transaction([STORE_PLAYLIST], 'readwrite'); 
+                        tx.objectStore(STORE_PLAYLIST).clear(); 
+                        p.tracks.forEach(t => {
+                            // Handle both old format (string) and new format (object with gap)
+                            if (typeof t === 'string') {
+                                tx.objectStore(STORE_PLAYLIST).add({ name: t, gap: DEFAULT_GAP_SECONDS });
+                            } else {
+                                tx.objectStore(STORE_PLAYLIST).add({ name: t.name, gap: getGapValue(t) });
+                            }
+                        });
+                        tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; 
+                    }
+                });
+                el.querySelector('.remove-btn').addEventListener('click', (ev) => { ev.stopPropagation(); if(confirm("Delete?")) { const t = db.transaction([STORE_PRESETS], 'readwrite'); t.objectStore(STORE_PRESETS).delete(p.name); t.oncomplete = loadPresetsFromDB; } });
+                presetList.appendChild(el);
+            });
+        };
+    }
+
+    // BETA: IMPROVED BACKUP FUNCTION - Clean metadata export with iOS native share
+    async function performBackup() {
+        try {
+            log('BETA: Starting backup...');
+            
+            // Gather data from all stores
+            const libraryPromise = new Promise((resolve, reject) => {
+                const request = db.transaction([STORE_LIBRARY], 'readonly').objectStore(STORE_LIBRARY).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
+            });
+            
+            const playlistPromise = new Promise((resolve, reject) => {
+                const request = db.transaction([STORE_PLAYLIST], 'readonly').objectStore(STORE_PLAYLIST).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
+            });
+            
+            const presetsPromise = new Promise((resolve, reject) => {
+                const request = db.transaction([STORE_PRESETS], 'readonly').objectStore(STORE_PRESETS).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
+            });
+            
+            const settingsPromise = new Promise((resolve, reject) => {
+                const request = db.transaction([STORE_SETTINGS], 'readonly').objectStore(STORE_SETTINGS).getAll();
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = reject;
+            });
+            
+            const [libraryData, playlistData, presetsData, settingsData] = await Promise.all([
+                libraryPromise, playlistPromise, presetsPromise, settingsPromise
+            ]);
+            
+            // Sanitize library - extract only metadata (no File blobs, no DOM elements, no circular refs)
+            const sanitizedLibrary = libraryData.map(item => {
+                const sanitized = { name: item.name };
+                // Only extract safe metadata from blob
+                if (item.blob) {
+                    if (item.blob.size !== undefined) sanitized.size = item.blob.size;
+                    if (item.blob.type !== undefined) sanitized.type = item.blob.type;
+                    if (item.blob.lastModified !== undefined) sanitized.lastModified = item.blob.lastModified;
+                }
+                // Include duration if available
+                if (item.duration !== undefined) sanitized.duration = item.duration;
+                return sanitized;
+            });
+            
+            // Sanitize playlist - track names and gap values
+            const sanitizedPlaylist = playlistData.map(item => ({ name: item.name, gap: getGapValue(item) }));
+            
+            // Sanitize presets - name and track list with gap values
+            const sanitizedPresets = presetsData.map(preset => ({
+                name: preset.name,
+                tracks: preset.tracks.map(t => {
+                    if (typeof t === 'string') {
+                        return { name: t, gap: DEFAULT_GAP_SECONDS };
+                    } else {
+                        return { name: t.name, gap: getGapValue(t) };
+                    }
+                })
+            }));
+            
+            // Sanitize settings - convert to simple object
+            const sanitizedSettings = {};
+            settingsData.forEach(item => {
+                if (item.key && item.value !== undefined) {
+                    sanitizedSettings[item.key] = item.value;
+                }
+            });
+            
+            // Create clean, serializable backup object
+            const backupData = {
+                version: APP_VERSION,
+                exportDate: new Date().toISOString(),
+                library: sanitizedLibrary,
+                playlist: sanitizedPlaylist,
+                presets: sanitizedPresets,
+                settings: sanitizedSettings
+            };
+            
+            // Format as human-readable JSON
+            const jsonStr = JSON.stringify(backupData, null, 2);
+            const filename = 'sandboxRADIO_Backup.json';
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            
+            log('BETA: Backup data prepared. Size: ' + jsonStr.length + ' bytes');
+            
+            // iOS Native Share - detect and use navigator.share if supported
+            if (navigator.share && navigator.canShare) {
+                try {
+                    const file = new File([blob], filename, { type: 'application/json' });
+                    
+                    // Check if files can be shared
+                    if (navigator.canShare({ files: [file] })) {
+                        log('BETA: Using iOS native share API');
+                        await navigator.share({ 
+                            files: [file],
+                            title: 'sandboxRADIO Backup',
+                            text: 'Backup configuration file'
+                        });
+                        log('BETA: Native share completed successfully');
+                        showToast('Backup shared!');
+                        return;
+                    } else {
+                        log('BETA: Share API available but cannot share files, using fallback');
+                    }
+                } catch (error) {
+                    // User cancelled or error occurred
+                    if (error.name === 'AbortError') {
+                        log('BETA: User cancelled share');
+                        return;
+                    } else {
+                        log('BETA: Share API error: ' + String(error));
+                        // Fall through to fallback method
+                    }
+                }
+            }
+            
+            // Fallback: Traditional download method for desktop/Android
+            log('BETA: Using traditional download method');
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            showToast('Backup downloaded!');
+            
+        } catch (error) {
+            log('BETA: Backup error: ' + String(error));
+            alert('Backup failed: ' + error.message);
+        }
+    }
+    
+    // BETA: IMPROVED RESTORE FUNCTION - Robust import with proper data clearing
+    async function handleRestore(file) {
+        try {
+            log('BETA: Starting restore from file: ' + file.name);
+            
+            // Read file content
+            const reader = new FileReader();
+            const fileContent = await new Promise((resolve, reject) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+            
+            // Parse JSON
+            const data = JSON.parse(fileContent);
+            log('BETA: Restore data parsed successfully');
+            
+            // Validate backup structure
+            if (!data.library || !data.playlist || !data.presets) {
+                throw new Error('Invalid backup file format. Missing required fields (library, playlist, presets).');
+            }
+            
+            // Confirm with user
+            if (!confirm('Restore system from backup? This will replace your current library, playlist, and presets.')) {
+                log('BETA: Restore cancelled by user');
+                return;
+            }
+            
+            showLoading('Restoring System...');
+            
+            // Step 1: Clear all existing data explicitly
+            log('BETA: Clearing existing data...');
+            
+            const clearLibrary = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+                const store = tx.objectStore(STORE_LIBRARY);
+                store.clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear library'));
+            });
+            
+            const clearPlaylist = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
+                const store = tx.objectStore(STORE_PLAYLIST);
+                store.clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear playlist'));
+            });
+            
+            const clearPresets = new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_PRESETS], 'readwrite');
+                const store = tx.objectStore(STORE_PRESETS);
+                store.clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(new Error('Failed to clear presets'));
+            });
+            
+            await Promise.all([clearLibrary, clearPlaylist, clearPresets]);
+            log('BETA: Existing data cleared successfully');
+            
+            // Clear in-memory arrays
+            playlistFiles = [];
+            currentTrackIndex = -1;
+            
+            // Step 2: Restore library (metadata only, marked as offline)
+            if (data.library && data.library.length > 0) {
+                log('BETA: Restoring library metadata...');
+                const restoreLibrary = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_LIBRARY], 'readwrite');
+                    const store = tx.objectStore(STORE_LIBRARY);
+                    
+                    data.library.forEach(item => {
+                        // Store as offline entry with metadata only
+                        store.put({
+                            name: item.name,
+                            size: item.size || 0,
+                            type: item.type || 'audio/wav',
+                            lastModified: item.lastModified || Date.now(),
+                            duration: item.duration || 0,
+                            _isOffline: true
+                        });
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore library'));
+                });
+                
+                await restoreLibrary;
+                log('BETA: Library restored: ' + data.library.length + ' items');
+            }
+            
+            // Step 3: Restore playlist
+            if (data.playlist && data.playlist.length > 0) {
+                log('BETA: Restoring playlist...');
+                const restorePlaylist = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_PLAYLIST], 'readwrite');
+                    const store = tx.objectStore(STORE_PLAYLIST);
+                    
+                    data.playlist.forEach(item => {
+                        store.add({ name: item.name, gap: getGapValue(item) });
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore playlist'));
+                });
+                
+                await restorePlaylist;
+                log('BETA: Playlist restored: ' + data.playlist.length + ' items');
+            }
+            
+            // Step 4: Restore presets
+            if (data.presets && data.presets.length > 0) {
+                log('BETA: Restoring presets...');
+                const restorePresets = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_PRESETS], 'readwrite');
+                    const store = tx.objectStore(STORE_PRESETS);
+                    
+                    data.presets.forEach(preset => {
+                        if (preset.name && preset.tracks) {
+                            const tracks = preset.tracks.map(t => {
+                                if (typeof t === 'string') {
+                                    return { name: t, gap: DEFAULT_GAP_SECONDS };
+                                } else {
+                                    return { name: t.name, gap: getGapValue(t) };
+                                }
+                            });
+                            store.put({
+                                name: preset.name,
+                                tracks: tracks
+                            });
+                        }
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore presets'));
+                });
+                
+                await restorePresets;
+                log('BETA: Presets restored: ' + data.presets.length + ' items');
+            }
+            
+            // Step 5: Restore settings if available
+            if (data.settings && typeof data.settings === 'object') {
+                log('BETA: Restoring settings...');
+                const restoreSettings = new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_SETTINGS], 'readwrite');
+                    const store = tx.objectStore(STORE_SETTINGS);
+                    
+                    Object.keys(data.settings).forEach(key => {
+                        store.put({ key: key, value: data.settings[key] });
+                    });
+                    
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('Failed to restore settings'));
+                });
+                
+                await restoreSettings;
+                log('BETA: Settings restored');
+            }
+            
+            // Step 6: Stop current playback and clear UI
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.src = '';
+                trackTitleDisplay.textContent = '---';
+            }
+            
+            // Step 7: Re-render all UI components
+            hideLoading();
+            log('BETA: Reloading UI...');
+            
+            // Clear DOM lists explicitly
+            libraryList.innerHTML = '';
+            playlistList.innerHTML = '';
+            presetList.innerHTML = '';
+            
+            // Reload from database
+            loadLibraryFromDB();
+            loadPlaylistFromDB();
+            loadPresetsFromDB();
+            loadSettingsFromDB();
+            
+            showToast('System Restored');
+            log('BETA: Restore completed successfully');
+            
+        } catch (error) {
+            hideLoading();
+            log('BETA: Restore error: ' + String(error));
+            alert('Restore failed: ' + error.message);
+        }
+    }
+
+    function setLibraryState(minimized) {
+        if (minimized) { mainDashboard.classList.add('minimized'); libraryPanel.classList.add('collapsed'); toggleLibBtn.textContent = '[+]'; } 
+        else { mainDashboard.classList.remove('minimized'); libraryPanel.classList.remove('collapsed'); toggleLibBtn.textContent = '[-]'; }
+        libraryList.style.display = ''; libraryPanel.style.height = '';
+    }
+    function loadSettingsFromDB() {
+        const tx = db.transaction([STORE_SETTINGS], 'readonly'); const store = tx.objectStore(STORE_SETTINGS);
+        store.get('testEndTime').onsuccess = (e) => { if(e.target.result) { testEndTime = parseInt(e.target.result.value); testEndInput.value = testEndTime; } };
+        store.get('libraryMinimized').onsuccess = (e) => { if(e.target.result && e.target.result.value === true) setLibraryState(true); };
+        store.get('masterVolume').onsuccess = (e) => { if(e.target.result) { volumeSlider.value = e.target.result.value; updateVolume(); } };
+        store.get('scopeTimebase').onsuccess = (e) => { if(e.target.result) { scopeTimebase = parseInt(e.target.result.value); scopeZoomSlider.value = scopeTimebase; } };
+    }
+    function updateVolume() { const v = parseFloat(volumeSlider.value); if (isAnalysisMode && masterGain) masterGain.gain.value = v; else if (!isIOS && currentAudio) currentAudio.volume = v; }
+    volumeSlider.addEventListener('input', updateVolume);
+    volumeSlider.addEventListener('change', (e) => { if(db) db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'masterVolume', value: parseFloat(e.target.value) }); });
+    function updateTimeDisplay(override) { const curr = override !== undefined ? override : currentAudio.currentTime; timeDisplay.textContent = `${formatTime(curr)} / ${formatTime(currentAudio.duration || 0)}`; }
+    function formatTime(s) { if (!s || isNaN(s)) return "0:00"; const m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc.toString().padStart(2, '0')}`; }
+    function updateQueueStats() { totalTimeDisplay.textContent = `Queue: ${playlistFiles.length} Tracks`; }
+
+    document.getElementById('testEndBtn').addEventListener('click', async () => {
+        let sec = parseInt(testEndInput.value) || 10;
+        db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'testEndTime', value: sec });
+        if(isAnalysisMode) await initWebAudio();
+        if (currentAudio.duration > 0 && !currentAudio.paused) { currentAudio.currentTime = Math.max(0, currentAudio.duration - sec); return; }
+        seekOnLoadPending = true; if(playlistFiles.length > 0) await playTrack(currentTrackIndex >= 0 ? currentTrackIndex : 0);
+    });
+    document.getElementById('toggleLibBtn').addEventListener('click', () => {
+        const isCurrentlyCollapsed = libraryPanel.classList.contains('collapsed'); setLibraryState(!isCurrentlyCollapsed);
+        db.transaction([STORE_SETTINGS], 'readwrite').objectStore(STORE_SETTINGS).put({ key: 'libraryMinimized', value: !isCurrentlyCollapsed });
+    });
+    document.getElementById('playAllBtn').addEventListener('click', async () => { if(playlistFiles.length) await playTrack(0); });
+    document.getElementById('stopBtn').addEventListener('click', stopTrack);
+    document.getElementById('prevTrackBtn').addEventListener('click', async () => { if(currentTrackIndex > 0) await playTrack(currentTrackIndex - 1); });
+    document.getElementById('nextTrackBtn').addEventListener('click', async () => { if(currentTrackIndex < playlistFiles.length - 1) await playTrack(currentTrackIndex + 1); });
+    document.getElementById('rewindBtn').addEventListener('click', () => currentAudio.currentTime -= 5);
+    document.getElementById('forwardBtn').addEventListener('click', () => currentAudio.currentTime += 5);
+    
+    // Play Button Action
+    playBtn.addEventListener('click', async () => {
+        log('Play button clicked');
+        if(!currentAudio.src && playlistFiles.length) { 
+            await playTrack(currentTrackIndex > -1 ? currentTrackIndex : 0); 
+        }
+        else if(currentAudio.paused) {
+            if (isAnalysisMode) {
+                log('Initializing Audio Engine...');
+                await initWebAudio();
+                log('Audio Engine Ready. Calling play()');
+            }
+            await currentAudio.play().catch(e => log('Error in play(): ' + String(e)));
+        } else { 
+            currentAudio.pause(); 
+        } 
+    });
+
+    // File/Export Handlers
+    document.getElementById('btnLoadFolder').addEventListener('click', () => { const i = document.getElementById('folderInput'); i.value = ''; i.click(); });
+    document.getElementById('folderInput').addEventListener('change', (e) => saveToLibraryDB(e.target.files));
+    document.getElementById('btnLoadFiles').addEventListener('click', () => { const i = document.getElementById('fileInput'); i.value = ''; i.click(); });
+    document.getElementById('fileInput').addEventListener('change', (e) => saveToLibraryDB(e.target.files));
+    document.getElementById('btnImport').addEventListener('click', () => { const i = document.getElementById('importInput'); i.value = ''; i.click(); });
+    document.getElementById('importInput').addEventListener('change', (e) => { if(e.target.files[0]) { handleRestore(e.target.files[0]); } });
+    document.getElementById('clearLibraryBtn').addEventListener('click', () => { if(confirm("Eject All?")) { const tx=db.transaction([STORE_LIBRARY],'readwrite'); tx.objectStore(STORE_LIBRARY).clear(); tx.oncomplete=loadLibraryFromDB; } });
+    document.getElementById('clearPlaylistBtn').addEventListener('click', () => { if(confirm("Clear Queue?")) { const tx=db.transaction([STORE_PLAYLIST],'readwrite'); tx.objectStore(STORE_PLAYLIST).clear(); tx.oncomplete = () => { stopTrack(); loadPlaylistFromDB(); }; } });
+    document.getElementById('savePresetBtn').addEventListener('click', () => { 
+        if(playlistFiles.length===0)return alert("Empty"); 
+        const n=prompt("Name:"); 
+        if(n) { 
+            const tx=db.transaction([STORE_PRESETS],'readwrite'); 
+            tx.objectStore(STORE_PRESETS).put({
+                name:n, 
+                tracks:playlistFiles.map(p=>({name:p.name, gap:getGapValue(p)}))
+            }); 
+            tx.oncomplete=loadPresetsFromDB; 
+        } 
+    });
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        performBackup();
+    });
+    document.getElementById('btnActionSave').addEventListener('click', ()=>{ 
+        if(pendingExportData) { 
+            const jsonStr = JSON.stringify(pendingExportData);
+            const filename = exportFilename.value + '.json';
+            
+            // iOS Safari-specific handling
+            if (isIOS) {
+                log('iOS detected - checking for Web Share API support');
+                const blob = new Blob([jsonStr], {type:'application/json'});
+                
+                // Check for Web Share API support
+                if (navigator.canShare && navigator.share) {
+                    try {
+                        // Create a File object from the blob
+                        const file = new File([blob], filename, { type: 'application/json' });
+                        
+                        // Check if the browser can share this type of file
+                        if (navigator.canShare({ files: [file] })) {
+                            log('iOS backup: Using Web Share API');
+                            // Use native share sheet (Save to Files, Airdrop, etc.)
+                            navigator.share({ files: [file] })
+                                .then(() => {
+                                    log('iOS backup: Web Share API succeeded');
+                                })
+                                .catch((error) => {
+                                    log('iOS backup: Web Share API cancelled or failed: ' + String(error));
+                                    // User cancelled or error occurred, silently fail
+                                });
+                            exportOverlay.style.display='none';
+                            return;
+                        } else {
+                            log('iOS backup: Web Share API cannot share files, using fallback');
+                        }
+                    } catch (error) {
+                        log('iOS backup: Web Share API error: ' + String(error));
+                    }
+                }
+                
+                // Fallback: anchor download (without target='_blank')
+                log('iOS backup: Using fallback anchor download');
+                try {
+                    const a = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // Revoke URL after a short delay to ensure download starts
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                } catch (error) {
+                    log('iOS backup error: ' + String(error));
+                    alert('iOS Download Failed. Please use "Copy to Clipboard" instead.');
+                }
+            } else {
+                // Standard desktop/Android approach with Blob
+                log('Non-iOS device - using standard Blob download');
+                const b = new Blob([jsonStr], {type:'application/json'});
+                const a = document.createElement('a');
+                const url = URL.createObjectURL(b);
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Revoke URL after a short delay to ensure download starts
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+            }
+            
+            exportOverlay.style.display='none';
+        } 
+    });
+    document.getElementById('btnActionCancel').addEventListener('click', ()=>exportOverlay.style.display='none');
+    document.getElementById('btnActionCopy').addEventListener('click', ()=>{ if(pendingExportData) { navigator.clipboard.writeText(JSON.stringify(pendingExportData)); alert("Copied!"); exportOverlay.style.display='none'; } });
+    
+    // DONATE
+    document.getElementById('btnDonate').addEventListener('click', () => { window.open('https://ko-fi.com/blackcarburning', '_blank'); });
+    
+    // DEBUG OVERLAY
+    const debugOverlay = document.getElementById('debugOverlay');
+    const debugContent = document.getElementById('debugContent');
+    
+    function refreshDebugLog() {
+        if (appLogs.length === 0) {
+            debugContent.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No logs yet. Events will appear here.</div>';
+            return;
+        }
+        debugContent.innerHTML = appLogs.map(entry => 
+            `<div class="debug-log-entry"><span class="debug-timestamp">${entry.time}</span><span class="debug-message">${entry.message}</span></div>`
+        ).join('');
+        debugContent.scrollTop = debugContent.scrollHeight;
+    }
+    
+    document.getElementById('btnDebug').addEventListener('click', () => {
+        refreshDebugLog();
+        debugOverlay.style.display = 'flex';
+    });
+    
+    document.getElementById('btnDebugClose').addEventListener('click', () => {
+        debugOverlay.style.display = 'none';
+    });
+    
+    document.getElementById('btnDebugRefresh').addEventListener('click', () => {
+        refreshDebugLog();
+    });
+    
+    document.getElementById('btnDebugCopy').addEventListener('click', () => {
+        const logText = appLogs.map(entry => `[${entry.time}] ${entry.message}`).join('\n');
+        navigator.clipboard.writeText(logText).then(() => {
+            showToast('Debug logs copied to clipboard!');
+        }).catch(err => {
+            showToast('Failed to copy logs');
+            console.error('Copy failed:', err);
+        });
+    });
+
+    // PAGE VISIBILITY HANDLING - v1.1.14 Conditional Background Handling
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            log('Visibility: Document hidden');
+            // Only stop audio/destroy context if in Analysis Mode
+            // In Normal Mode, allow native background audio playback to continue
+            if (isAnalysisMode) {
+                log('Analysis Mode active - stopping audio and destroying context');
+                // App is backgrounded/screen locked: Stop audio immediately
+                if (currentAudio && !currentAudio.paused) {
+                    log('Pausing currentAudio');
+                    currentAudio.pause();
+                    playBtn.innerHTML = '▶';
+                }
+                // Always stop visualizer loop
+                if (rafID) {
+                    log('Stopping animation frame');
+                    cancelAnimationFrame(rafID);
+                    rafID = null;
+                }
+                // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
+                if (audioCtx) {
+                    log('Pausing and destroying AudioContext');
+                    // Store reference for async close, then immediately null the global
+                    const ctxToClose = audioCtx;
+                    audioCtx = null; // Immediately null to prevent synchronous access
+                    ctxToClose.close().catch((e) => {
+                        log('Error closing audio context: ' + String(e));
+                    });
+                }
+            } else {
+                log('Normal Mode active - allowing background audio playback to continue');
+            }
+        } else {
+            log('Visibility: Document visible');
+            // App returns to foreground: Do nothing
+            // User must press Play button manually to resume
+        }
+    });
+
+    // INIT
+    window.addEventListener('load', () => {
+        initDB();
+        silentAudio.src = SILENT_WAV_DATA_URI; // Initialize silent audio for iOS gap management
+        updateLabTabUI(); // Ensure Spectrum UI is visible on load
+        document.getElementById('versionTag').textContent = APP_VERSION;
+        document.title = `sandboxRADIO Player ${APP_VERSION}`;
+    });
+</script>
+
+</body>
+</html>
