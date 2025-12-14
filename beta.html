@@ -634,6 +634,7 @@
     let currentAudio = null;
     let silentAudio = new Audio(); // Dedicated silent audio player for iOS gap management
     let audioCtx = null;
+    let wasPlayingBeforeInterrupt = false; // Track if audio was playing before background interrupt
     
     let stereoPath = null, monoPath = null, preMaster = null, masterGain = null; 
     let analyser = null; 
@@ -812,11 +813,16 @@
     function setupAudioEvents(audioObj) {
         audioObj.addEventListener('play', () => { 
             log('currentAudio: play event');
-            playBtn.innerHTML = '&#10074;&#10074;'; 
+            playBtn.innerHTML = '&#10074;&#10074;';
+            wasPlayingBeforeInterrupt = true; // Track that we were playing
         });
         audioObj.addEventListener('pause', () => { 
             log('currentAudio: pause event');
-            playBtn.innerHTML = '▶'; 
+            playBtn.innerHTML = '▶';
+            // Only clear if paused by user action in foreground
+            if (document.visibilityState === 'visible') {
+                wasPlayingBeforeInterrupt = false;
+            }
         });
         audioObj.addEventListener('stalled', () => { 
             log('currentAudio: stalled event');
@@ -873,6 +879,50 @@
         currentAudio.crossOrigin = "anonymous"; 
         currentAudio.playsInline = true;
         setupAudioEvents(currentAudio);
+    }
+
+    function setupMediaSession() {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', async () => {
+                log('MediaSession: play action triggered');
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    try {
+                        await audioCtx.resume();
+                        log('MediaSession: AudioContext resumed');
+                    } catch (e) {
+                        log('MediaSession: Failed to resume AudioContext: ' + String(e));
+                    }
+                }
+                if (currentAudio) {
+                    try {
+                        await currentAudio.play();
+                    } catch (e) {
+                        log('MediaSession: Failed to play: ' + String(e));
+                    }
+                }
+            });
+            
+            navigator.mediaSession.setActionHandler('pause', () => {
+                log('MediaSession: pause action triggered');
+                if (currentAudio) currentAudio.pause();
+            });
+            
+            navigator.mediaSession.setActionHandler('previoustrack', () => {
+                log('MediaSession: previous track action triggered');
+                if (currentTrackIndex > 0) {
+                    playTrack(currentTrackIndex - 1);
+                }
+            });
+            
+            navigator.mediaSession.setActionHandler('nexttrack', () => {
+                log('MediaSession: next track action triggered');
+                if (currentTrackIndex < playlistFiles.length - 1) {
+                    playTrack(currentTrackIndex + 1);
+                }
+            });
+            
+            log('MediaSession handlers registered');
+        }
     }
 
     toggleAnalysisBtn.addEventListener('click', () => {
@@ -1303,11 +1353,7 @@
                 currentAudio.load(); updateVolume();
                 currentAudio.play().then(() => {
                     if ('mediaSession' in navigator) {
-                        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName, artist: 'sandboxRADIO', album: 'Analysis Lab' });
-                        navigator.mediaSession.setActionHandler('play', () => currentAudio.play());
-                        navigator.mediaSession.setActionHandler('pause', () => currentAudio.pause());
-                        navigator.mediaSession.setActionHandler('previoustrack', () => playTrack(index-1));
-                        navigator.mediaSession.setActionHandler('nexttrack', () => playTrack(index+1));
+                        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName, artist: 'sandboxRADIO', album: 'Queue' });
                     }
                 }).catch(err => console.error(err));
                 currentTrackIndex = index; renderPlaylistUI();
@@ -2018,8 +2064,26 @@
             }
         } else {
             log('Visibility: Document visible');
-            // App returns to foreground: Do nothing
-            // User must press Play button manually to resume
+            // App returns to foreground: Attempt to resume if in Analysis Mode
+            if (isAnalysisMode && audioCtx) {
+                log('Visibility changed to visible, checking AudioContext state: ' + audioCtx.state);
+                if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+                    audioCtx.resume().then(() => {
+                        log('AudioContext resumed successfully');
+                        if (wasPlayingBeforeInterrupt && currentAudio && currentAudio.paused) {
+                            currentAudio.play().then(() => {
+                                log('Audio playback resumed');
+                            }).catch(e => {
+                                log('Failed to resume audio playback: ' + String(e));
+                                showToast('Tap play to resume audio');
+                            });
+                        }
+                    }).catch(e => {
+                        log('Failed to resume AudioContext: ' + String(e));
+                        showToast('Tap play to resume audio');
+                    });
+                }
+            }
         }
     });
 
@@ -2027,6 +2091,7 @@
     window.addEventListener('load', () => {
         initDB();
         silentAudio.src = SILENT_WAV_DATA_URI; // Initialize silent audio for iOS gap management
+        setupMediaSession(); // Setup lock screen media controls
         updateLabTabUI(); // Ensure Spectrum UI is visible on load
         document.getElementById('versionTag').textContent = APP_VERSION;
         document.title = `sandboxRADIO Player ${APP_VERSION}`;
