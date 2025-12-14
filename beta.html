@@ -910,14 +910,18 @@
             navigator.mediaSession.setActionHandler('previoustrack', () => {
                 log('MediaSession: previous track action triggered');
                 if (currentTrackIndex > 0) {
-                    playTrack(currentTrackIndex - 1);
+                    playTrack(currentTrackIndex - 1).catch(e => {
+                        log('MediaSession: Failed to play previous track: ' + String(e));
+                    });
                 }
             });
             
             navigator.mediaSession.setActionHandler('nexttrack', () => {
                 log('MediaSession: next track action triggered');
                 if (currentTrackIndex < playlistFiles.length - 1) {
-                    playTrack(currentTrackIndex + 1);
+                    playTrack(currentTrackIndex + 1).catch(e => {
+                        log('MediaSession: Failed to play next track: ' + String(e));
+                    });
                 }
             });
             
