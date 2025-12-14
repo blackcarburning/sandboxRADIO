@@ -588,7 +588,7 @@
 </div>
 
 <script>
-    const APP_VERSION = 'v1.1.27-BETA';
+    const APP_VERSION = 'v1.1.28-BETA';
     const DB_NAME = 'RadioWavDB';
     
     // DEBUG LOGGING
@@ -652,13 +652,7 @@
     let rafID = null;        
 
     // iOS Audio Session Keep-Alive
-    let keepAliveInterval = null;
-    let silentOscillator = null;
-    let silentGain = null;
-    const MAX_RESUME_RETRIES = 5;
-    const MAX_RETRY_DELAY_MS = 5000;
-    const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
-    let cachedSilentBuffer = null; // Reusable silent buffer for heartbeat
+    let audioSessionKeepAliveInterval = null;
 
     // Stats & Config
     let integratedSum = 0;
@@ -732,130 +726,31 @@
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) volContainer.style.display = 'none';
 
-    // --- iOS AUDIO SESSION KEEP-ALIVE MECHANISMS ---
-    
-    // 1. Periodic Heartbeat - Proactively resume AudioContext and play silent buffer
-    function startKeepAliveHeartbeat() {
-        if (keepAliveInterval) return; // Already running
+    // --- iOS AUDIO SESSION KEEP-ALIVE ---
+    function startAudioSessionKeepAlive() {
+        if (audioSessionKeepAliveInterval) return;
         
-        log('Starting iOS audio session heartbeat');
-        keepAliveInterval = setInterval(() => {
+        audioSessionKeepAliveInterval = setInterval(() => {
             if (!isAnalysisMode || !audioCtx) return;
             
-            // Check and resume suspended AudioContext
-            if (audioCtx.state === 'suspended') {
-                log('Heartbeat: AudioContext suspended, attempting resume');
-                audioCtx.resume().then(() => {
-                    log('Heartbeat: AudioContext resumed successfully');
-                }).catch(e => {
-                    log('Heartbeat: Failed to resume AudioContext: ' + String(e));
-                });
+            // Only resume if suspended AND we're supposed to be playing
+            if (audioCtx.state === 'suspended' && currentAudio && !currentAudio.paused) {
+                log('Keep-alive: AudioContext suspended while playing, resuming...');
+                audioCtx.resume()
+                    .then(() => log('Keep-alive: AudioContext resumed successfully'))
+                    .catch(e => log('Keep-alive resume failed: ' + e));
             }
-            
-            // Play brief silent buffer to keep hardware audio path active
-            try {
-                if (audioCtx && audioCtx.state === 'running') {
-                    // Create cached buffer if needed
-                    if (!cachedSilentBuffer) {
-                        cachedSilentBuffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
-                    }
-                    
-                    const silentBufferNode = audioCtx.createBufferSource();
-                    silentBufferNode.buffer = cachedSilentBuffer;
-                    const silentGainNode = audioCtx.createGain();
-                    silentGainNode.gain.value = 0;
-                    silentBufferNode.connect(silentGainNode);
-                    silentGainNode.connect(audioCtx.destination);
-                    silentBufferNode.start(0);
-                    silentBufferNode.onended = () => {
-                        try {
-                            silentBufferNode.disconnect();
-                            silentGainNode.disconnect();
-                        } catch (e) {
-                            // Ignore cleanup errors
-                        }
-                    };
-                }
-            } catch (e) {
-                log('Heartbeat: Failed to play silent buffer: ' + String(e));
-            }
-        }, HEARTBEAT_INTERVAL_MS);
-    }
-    
-    function stopKeepAliveHeartbeat() {
-        if (keepAliveInterval) {
-            log('Stopping iOS audio session heartbeat');
-            clearInterval(keepAliveInterval);
-            keepAliveInterval = null;
-            cachedSilentBuffer = null; // Clear cached buffer
-        }
-    }
-    
-    // 2. Continuous Silent Oscillator - Prevents iOS from considering audio session "idle"
-    function startSilentOscillator() {
-        if (!audioCtx || silentOscillator) return;
+        }, 15000);
         
-        try {
-            log('Starting silent oscillator for iOS keep-alive');
-            silentOscillator = audioCtx.createOscillator();
-            silentGain = audioCtx.createGain();
-            silentGain.gain.value = 0; // Zero gain - completely silent
-            
-            silentOscillator.connect(silentGain);
-            silentGain.connect(audioCtx.destination);
-            silentOscillator.start(0);
-            
-            log('Silent oscillator started successfully');
-        } catch (e) {
-            log('Failed to start silent oscillator: ' + String(e));
-            silentOscillator = null;
-            silentGain = null;
-        }
+        log('Audio session keep-alive started');
     }
-    
-    function stopSilentOscillator() {
-        if (silentOscillator) {
-            log('Stopping silent oscillator');
-            try {
-                silentOscillator.stop();
-            } catch (e) {
-                // Oscillator may already be stopped, ignore error
-            }
-            try {
-                silentOscillator.disconnect();
-                silentGain.disconnect();
-            } catch (e) {
-                log('Error disconnecting silent oscillator: ' + String(e));
-            }
-            silentOscillator = null;
-            silentGain = null;
+
+    function stopAudioSessionKeepAlive() {
+        if (audioSessionKeepAliveInterval) {
+            clearInterval(audioSessionKeepAliveInterval);
+            audioSessionKeepAliveInterval = null;
+            log('Audio session keep-alive stopped');
         }
-    }
-    
-    // 3. Exponential Backoff Resume with Retry
-    async function resumeAudioContextWithRetry() {
-        if (!audioCtx || audioCtx.state !== 'suspended') return true;
-        
-        for (let attempt = 0; attempt < MAX_RESUME_RETRIES; attempt++) {
-            try {
-                const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RETRY_DELAY_MS);
-                if (attempt > 0) {
-                    log(`Resume retry: attempt ${attempt + 1} of ${MAX_RESUME_RETRIES} after ${delay}ms delay`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-                
-                await audioCtx.resume();
-                log('AudioContext resumed successfully' + (attempt > 0 ? ` after ${attempt + 1} attempts` : ''));
-                return true;
-            } catch (e) {
-                log(`Resume attempt ${attempt + 1} failed: ${String(e)}`);
-                if (attempt === MAX_RESUME_RETRIES - 1) {
-                    log('All resume attempts exhausted');
-                    return false;
-                }
-            }
-        }
-        return false;
     }
 
     // --- SCRUBBER EVENT LISTENERS ---
@@ -1077,6 +972,7 @@
             if(isIOS) volContainer.style.display = 'flex';
             createNewAudioPlayer(); 
             initWebAudio().catch(e => log('Error in initWebAudio: ' + String(e))); 
+            startAudioSessionKeepAlive(); // Start keep-alive when Analysis Mode enabled
             updateLabTabUI();
         } else {
             isAnalysisMode = false;
@@ -1091,11 +987,7 @@
             if(isIOS) volContainer.style.display = 'none';
             if(isMono) { isMono = false; monoBtn.classList.remove('active'); }
             stopAnalysisLoop();
-            // Stop iOS keep-alive mechanisms
-            if (isIOS) {
-                stopSilentOscillator();
-                stopKeepAliveHeartbeat();
-            }
+            stopAudioSessionKeepAlive(); // Stop keep-alive when Analysis Mode disabled
             if(audioCtx) { audioCtx.close().catch(e=>console.log(e)); audioCtx = null; masterGain = null; mediaSource = null; }
             createNewAudioPlayer();
         }
@@ -1195,24 +1087,17 @@
             if(isMono) { stereoPath.gain.value = 0; monoPath.gain.value = 1; }
             else { stereoPath.gain.value = 1; monoPath.gain.value = 0; }
             
-            // Add AudioContext state change listener for interrupt handling
+            // Add AudioContext statechange listener for auto-recovery
             audioCtx.addEventListener('statechange', () => {
-                log(`AudioContext state changed to: ${audioCtx.state}`);
-                if (audioCtx.state === 'suspended' && isAnalysisMode && isIOS) {
-                    log('AudioContext suspended unexpectedly, attempting recovery');
-                    resumeAudioContextWithRetry().then(success => {
-                        if (!success) {
-                            showToast('Audio paused. Tap play to resume.');
-                        }
-                    });
+                log('AudioContext state changed to: ' + audioCtx.state);
+                
+                // Auto-resume if suspended while supposed to be playing
+                if (audioCtx.state === 'suspended') {
+                    if (currentAudio && !currentAudio.paused) {
+                        audioCtx.resume().catch(e => log('Auto-resume failed: ' + e));
+                    }
                 }
             });
-            
-            // Start iOS keep-alive mechanisms (only in Analysis Mode)
-            if (isIOS && isAnalysisMode) {
-                startSilentOscillator();
-                startKeepAliveHeartbeat();
-            }
             
             startAnalysisLoop();
         } else {
@@ -1220,7 +1105,7 @@
         }
         if (audioCtx.state === 'suspended') {
             log('initWebAudio: Context suspended, calling resume()');
-            await resumeAudioContextWithRetry();
+            await audioCtx.resume();
             log('initWebAudio: Context resumed');
         }
     }
@@ -2045,12 +1930,6 @@
                 log('Initializing Audio Engine...');
                 await initWebAudio();
                 log('Audio Engine Ready. Calling play()');
-                
-                // Additional recovery attempt for iOS if context is still suspended
-                if (isIOS && audioCtx && audioCtx.state === 'suspended') {
-                    log('iOS: AudioContext still suspended, attempting recovery');
-                    await resumeAudioContextWithRetry();
-                }
             }
             await currentAudio.play().catch(e => log('Error in play(): ' + String(e)));
         } else { 
@@ -2199,13 +2078,15 @@
     });
 
     // PAGE VISIBILITY HANDLING - v1.1.14 Conditional Background Handling
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener('visibilitychange', async () => {
+        log('Visibility changed: ' + document.visibilityState);
+        
         if (document.hidden) {
             log('Visibility: Document hidden');
             // Only stop audio/destroy context if in Analysis Mode
             // In Normal Mode, allow native background audio playback to continue
             if (isAnalysisMode) {
-                log('Analysis Mode active - pausing audio');
+                log('Analysis Mode active - stopping audio and destroying context');
                 // App is backgrounded/screen locked: Stop audio immediately
                 if (currentAudio && !currentAudio.paused) {
                     log('Pausing currentAudio');
@@ -2218,24 +2099,15 @@
                     cancelAnimationFrame(rafID);
                     rafID = null;
                 }
-                
-                // On iOS, keep AudioContext alive to prevent re-initialization issues
-                // Just suspend it instead of closing
-                if (isIOS) {
-                    log('iOS: Suspending AudioContext but keeping it alive');
-                    // Stop keep-alive mechanisms to save battery while backgrounded
-                    stopKeepAliveHeartbeat();
-                    stopSilentOscillator();
-                } else {
-                    // Non-iOS: Nuclear reset - close and nullify audio context
-                    if (audioCtx) {
-                        log('Pausing and destroying AudioContext');
-                        const ctxToClose = audioCtx;
-                        audioCtx = null;
-                        ctxToClose.close().catch((e) => {
-                            log('Error closing audio context: ' + String(e));
-                        });
-                    }
+                // Nuclear reset: Close and nullify audio context to prevent iOS suspension bug
+                if (audioCtx) {
+                    log('Pausing and destroying AudioContext');
+                    // Store reference for async close, then immediately null the global
+                    const ctxToClose = audioCtx;
+                    audioCtx = null; // Immediately null to prevent synchronous access
+                    ctxToClose.close().catch((e) => {
+                        log('Error closing audio context: ' + String(e));
+                    });
                 }
             } else {
                 log('Normal Mode active - allowing background audio playback to continue');
@@ -2243,60 +2115,30 @@
         } else {
             log('Visibility: Document visible');
             // App returns to foreground: Attempt to resume if in Analysis Mode
-            if (isAnalysisMode) {
-                // Enhanced visibility change handler with aggressive retry
-                const attemptResume = async () => {
-                    // Restart keep-alive mechanisms if on iOS
-                    if (isIOS) {
-                        startKeepAliveHeartbeat();
-                        // Always try to start oscillator - startSilentOscillator checks if already running
-                        if (audioCtx) {
-                            startSilentOscillator();
+            if (isAnalysisMode && audioCtx) {
+                // Multiple retry attempts with exponential backoff
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    if (audioCtx.state === 'suspended') {
+                        try {
+                            await audioCtx.resume();
+                            log(`AudioContext resumed on attempt ${attempt + 1}`);
+                            break;
+                        } catch (e) {
+                            log(`Resume attempt ${attempt + 1} failed: ${e}`);
+                            await new Promise(r => setTimeout(r, 100 * Math.pow(2, attempt)));
                         }
                     }
-                    
-                    if (audioCtx) {
-                        log('Visibility changed to visible, checking AudioContext state: ' + audioCtx.state);
-                        
-                        if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
-                            // Use exponential backoff retry
-                            const success = await resumeAudioContextWithRetry();
-                            
-                            if (success) {
-                                log('AudioContext resumed successfully');
-                                
-                                // Note: mediaSource re-establishment is handled by initWebAudio if needed
-                                // We avoid calling createMediaElementSource here as it can only be called once per element
-                                
-                                // Resume playback if it was playing before interrupt
-                                if (wasPlayingBeforeInterrupt && currentAudio && currentAudio.paused) {
-                                    // Multiple retry attempts for playback resume
-                                    for (let i = 0; i < 3; i++) {
-                                        try {
-                                            await currentAudio.play();
-                                            log('Audio playback resumed');
-                                            break;
-                                        } catch (e) {
-                                            log(`Playback resume attempt ${i + 1} failed: ${String(e)}`);
-                                            if (i < 2) {
-                                                await new Promise(resolve => setTimeout(resolve, 500));
-                                            } else {
-                                                showToast('Tap play to resume audio');
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                log('Failed to resume AudioContext after all retries');
-                                showToast('Tap play to resume audio');
-                            }
-                        }
-                    }
-                };
+                }
                 
-                attemptResume().catch(e => {
-                    log('Error in visibility resume handler: ' + String(e));
-                });
+                // If we were playing before going to background, try to resume playback
+                if (wasPlayingBeforeInterrupt && currentAudio && currentAudio.paused) {
+                    try {
+                        await currentAudio.play();
+                        log('Playback resumed after visibility change');
+                    } catch (e) {
+                        log('Failed to resume playback: ' + e);
+                    }
+                }
             }
         }
     });
@@ -2304,12 +2146,7 @@
     // INIT
     window.addEventListener('load', () => {
         initDB();
-        // Initialize silent audio for iOS - keep it loaded and ready at all times
-        silentAudio.src = SILENT_WAV_DATA_URI;
-        silentAudio.load(); // Preload the silent audio
-        if (isIOS) {
-            log('iOS detected: Silent audio preloaded for keep-alive');
-        }
+        silentAudio.src = SILENT_WAV_DATA_URI; // Initialize silent audio for iOS gap management
         setupMediaSession(); // Setup lock screen media controls
         updateLabTabUI(); // Ensure Spectrum UI is visible on load
         document.getElementById('versionTag').textContent = APP_VERSION;
@@ -2319,5 +2156,3 @@
 
 </body>
 </html>
-
-
