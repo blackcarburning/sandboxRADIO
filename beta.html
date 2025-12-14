@@ -631,8 +631,9 @@
     // --- AUDIO ENGINE ---
     let isAnalysisMode = false;
     let isMono = false;
-    let currentAudio = null; 
-    let audioCtx = null;     
+    let currentAudio = null;
+    let silentAudio = new Audio(); // Dedicated silent audio player for iOS gap management
+    let audioCtx = null;
     
     let stereoPath = null, monoPath = null, preMaster = null, masterGain = null; 
     let analyser = null; 
@@ -835,16 +836,16 @@
                     
                     // iOS fix: Play silent audio during gap to keep audio session active
                     if (isIOS) {
-                        audioObj.src = SILENT_WAV_DATA_URI;
-                        audioObj.loop = true;
-                        audioObj.play().catch(e => log('Failed to play silent audio during gap: ' + e));
+                        silentAudio.loop = true;
+                        silentAudio.play().catch(e => log('Silent audio play failed: ' + e));
                     }
                     
                     await new Promise(resolve => setTimeout(resolve, gapSeconds * 1000));
                     
                     // iOS fix: Stop silent audio before next track
                     if (isIOS) {
-                        audioObj.loop = false;
+                        silentAudio.pause();
+                        silentAudio.currentTime = 0; // Reset for next time
                     }
                     
                     await playTrack(currentTrackIndex + 1);
@@ -2025,6 +2026,7 @@
     // INIT
     window.addEventListener('load', () => {
         initDB();
+        silentAudio.src = SILENT_WAV_DATA_URI; // Initialize silent audio for iOS gap management
         updateLabTabUI(); // Ensure Spectrum UI is visible on load
         document.getElementById('versionTag').textContent = APP_VERSION;
         document.title = `sandboxRADIO Player ${APP_VERSION}`;
