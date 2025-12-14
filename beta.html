@@ -736,7 +736,9 @@
             // Only resume if suspended AND we're supposed to be playing
             if (audioCtx.state === 'suspended' && currentAudio && !currentAudio.paused) {
                 log('Keep-alive: AudioContext suspended while playing, resuming...');
-                audioCtx.resume().catch(e => log('Keep-alive resume failed: ' + e));
+                audioCtx.resume()
+                    .then(() => log('Keep-alive: AudioContext resumed successfully'))
+                    .catch(e => log('Keep-alive resume failed: ' + e));
             }
         }, 15000);
         
@@ -1089,8 +1091,8 @@
             audioCtx.addEventListener('statechange', () => {
                 log('AudioContext state changed to: ' + audioCtx.state);
                 
-                // Auto-resume if interrupted while supposed to be playing
-                if (audioCtx.state === 'interrupted' || audioCtx.state === 'suspended') {
+                // Auto-resume if suspended while supposed to be playing
+                if (audioCtx.state === 'suspended') {
                     if (currentAudio && !currentAudio.paused) {
                         audioCtx.resume().catch(e => log('Auto-resume failed: ' + e));
                     }
