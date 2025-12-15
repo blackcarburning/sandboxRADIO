@@ -2266,7 +2266,7 @@
 
         const freq = getFreqFromX(x, rect.width);
         
-        soloFilter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+        soloFilter.frequency.setValueAtTime(freq, audioCtx.currentTime);
         updateTooltip(x, touch.clientY - rect.top, freq);
     }
 
