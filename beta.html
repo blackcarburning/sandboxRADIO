@@ -399,7 +399,24 @@
         .debug-timestamp { color: #888; min-width: 80px; font-size: 0.8rem; }
         .debug-message { color: #38bdf8; flex: 1; }
 
-
+        .freq-tooltip {
+            position: absolute;
+            background: rgba(16, 185, 129, 0.95);
+            color: #000;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            transform: translate(-50%, -120%);
+            border: 1px solid #000;
+            white-space: pre;
+            text-align: center;
+        }
 
         @media (max-width: 1000px) {
             .radio-chassis { height: 100vh; border-radius: 0; border: none; padding: 5px; width: 100%; }
@@ -538,6 +555,7 @@
             <div class="lab-tab" data-tab="waterfall">Waterfall</div>
         </div>
         <div class="lab-viewport">
+            <div id="freqTooltip" class="freq-tooltip"></div>
             <div class="scope-controls" id="scopeControls">
                 <span class="scope-ui-only">Timebase (10ms - 5s)</span>
                 <input type="range" id="scopeZoom" class="scope-ui-only" min="10" max="5000" step="10" value="10">
@@ -2187,6 +2205,105 @@
         document.getElementById('versionTag').textContent = APP_VERSION;
         document.title = `sandboxRADIO Player ${APP_VERSION}`;
     });
+
+    // --- FREQUENCY SOLO INTERACTION ---
+    let soloFilter = null;
+    const freqTooltip = document.getElementById('freqTooltip');
+
+    function formatFreq(hz) {
+        if (hz >= 1000) return (hz / 1000).toFixed(2) + " kHz";
+        return Math.round(hz) + " Hz";
+    }
+
+    function getFreqFromX(x, width) {
+        const minF = 20;
+        const maxF = 20000; 
+        return minF * Math.pow(maxF / minF, x / width);
+    }
+
+    function handleSoloStart(e) {
+        if (!isAnalysisMode || !audioCtx || activeTab !== 'spectrum') return;
+        
+        e.preventDefault();
+
+        if (!soloFilter) {
+            soloFilter = audioCtx.createBiquadFilter();
+            soloFilter.type = "bandpass";
+            soloFilter.Q.value = 4.0;
+        }
+
+        const rect = mainCanvas.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        const x = touch.clientX - rect.left;
+        
+        if (x < 0 || x > rect.width) return;
+
+        const freq = getFreqFromX(x, rect.width);
+        soloFilter.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        try {
+            preMaster.disconnect(masterGain);
+            preMaster.connect(soloFilter);
+            soloFilter.connect(masterGain);
+        } catch(err) {
+            console.error("Audio routing error:", err);
+            return;
+        }
+
+        freqTooltip.style.display = 'block';
+        updateTooltip(x, touch.clientY - rect.top, freq);
+    }
+
+    function handleSoloMove(e) {
+        if (!soloFilter || freqTooltip.style.display === 'none') return;
+        e.preventDefault();
+
+        const rect = mainCanvas.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        const x = touch.clientX - rect.left;
+        
+        if (x < 0 || x > rect.width) return;
+
+        const freq = getFreqFromX(x, rect.width);
+        
+        soloFilter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+        updateTooltip(x, touch.clientY - rect.top, freq);
+    }
+
+    function handleSoloEnd(e) {
+        if (!soloFilter) return;
+        if (e) e.preventDefault();
+
+        try {
+            soloFilter.disconnect();
+            preMaster.disconnect(soloFilter);
+            
+            preMaster.connect(masterGain);
+        } catch(err) {
+            console.log("Restoration error:", err);
+        }
+
+        freqTooltip.style.display = 'none';
+    }
+
+    function updateTooltip(x, y, freq) {
+        freqTooltip.textContent = `SOLO: ${formatFreq(freq)}`;
+        freqTooltip.style.left = x + 'px';
+        freqTooltip.style.top = y + 'px';
+    }
+
+    mainCanvas.addEventListener('touchstart', handleSoloStart, {passive: false});
+    mainCanvas.addEventListener('touchmove', handleSoloMove, {passive: false});
+    mainCanvas.addEventListener('touchend', handleSoloEnd);
+    mainCanvas.addEventListener('touchcancel', handleSoloEnd);
+
+    mainCanvas.addEventListener('mousedown', (e) => { 
+        if(e.button === 0) handleSoloStart(e); 
+    });
+    window.addEventListener('mousemove', (e) => {
+        if(e.buttons === 1) handleSoloMove(e); 
+    });
+    window.addEventListener('mouseup', handleSoloEnd);
 </script>
 
 </body>
