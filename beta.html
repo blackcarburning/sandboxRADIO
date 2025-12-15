@@ -2217,7 +2217,7 @@
 
     function getFreqFromX(x, width) {
         const minF = 20;
-        const maxF = 20000; 
+        const maxF = 22050; 
         return minF * Math.pow(maxF / minF, x / width);
     }
 
@@ -2242,7 +2242,7 @@
         soloFilter.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
         try {
-            preMaster.disconnect(masterGain);
+            preMaster.disconnect();
             preMaster.connect(soloFilter);
             soloFilter.connect(masterGain);
         } catch(err) {
@@ -2276,8 +2276,7 @@
 
         try {
             soloFilter.disconnect();
-            preMaster.disconnect(soloFilter);
-            
+            preMaster.disconnect();
             preMaster.connect(masterGain);
         } catch(err) {
             console.log("Restoration error:", err);
