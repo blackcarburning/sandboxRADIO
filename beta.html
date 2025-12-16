@@ -1150,6 +1150,13 @@
 
         function draw(time) {
             if (!isAnalysisMode || !analyser) return;
+            
+            // Verify audio graph is intact after potential disconnections
+            if (!preMaster || !masterGain) {
+                log('Audio graph broken, skipping draw');
+                return;
+            }
+            
             checkResize(); 
             
             analyser.getFloatTimeDomainData(timeDomainBuffer); 
@@ -2258,10 +2265,19 @@
             preMaster.disconnect();
             preMaster.connect(masterGain);
         } catch(err) {
-            console.log("Restoration error:", err);
+            log("Restoration error: " + err);
         }
 
+        // Reset soloFilter to null so it gets recreated fresh next time
+        soloFilter = null;
         freqTooltip.style.display = 'none';
+        
+        // Resume AudioContext if it got suspended during touch interaction
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+                log('AudioContext resumed after solo end');
+            }).catch(e => log('Failed to resume AudioContext: ' + e));
+        }
     }
 
     function updateTooltip(x, y, freq) {
@@ -2272,6 +2288,18 @@
     mainCanvas.addEventListener('touchmove', handleSoloMove, {passive: false});
     mainCanvas.addEventListener('touchend', handleSoloEnd);
     mainCanvas.addEventListener('touchcancel', handleSoloEnd);
+
+    // Ensure AudioContext resumes on touch (fixes iOS/touchscreen issues)
+    mainCanvas.addEventListener('touchstart', async () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            try {
+                await audioCtx.resume();
+                log('AudioContext resumed on canvas touch');
+            } catch(e) {
+                log('Failed to resume AudioContext on touch: ' + e);
+            }
+        }
+    }, {passive: true, capture: true});
 
     mainCanvas.addEventListener('mousedown', (e) => { 
         if(e.button === 0) handleSoloStart(e); 
