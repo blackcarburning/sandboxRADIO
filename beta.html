@@ -1026,29 +1026,6 @@
             audioCtx = null; 
         }
         if (!audioCtx) {
-            // FRESH START: Recreate HTMLAudioElement to match new AudioContext
-            if (currentAudio && currentAudio.src) {
-                log('initWebAudio: Player Swap - saving state');
-                let savedTime = currentAudio.currentTime;
-                let savedSrc = currentAudio.src;
-                
-                log('initWebAudio: Recreating HTMLAudioElement');
-                currentAudio = new Audio();
-                currentAudio.crossOrigin = "anonymous";
-                currentAudio.playsInline = true;
-                setupAudioEvents(currentAudio);
-                currentAudio.src = savedSrc;
-                
-                // Set currentTime after metadata loads to avoid timing issues
-                currentAudio.addEventListener('loadedmetadata', () => {
-                    if (savedTime > 0) {
-                        currentAudio.currentTime = savedTime;
-                    }
-                }, { once: true });
-                
-                log('initWebAudio: Recreated HTMLAudioElement to match new AudioContext');
-            }
-            
             log('initWebAudio: Creating new AudioContext');
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
